@@ -1,0 +1,37 @@
+{
+  "name": "compress-it",
+  "version": "1.0.0",
+  "description": "A fast, free image compression web application supporting JPG, PNG, GIF, and WebP",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "build": "npm install",
+    "test": "echo \"No tests configured\" && exit 0"
+  },
+  "keywords": [
+    "image",
+    "compression",
+    "jpeg",
+    "png",
+    "webp",
+    "gif",
+    "optimizer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "archiver": "^6.0.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.2",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
