@@ -20,12 +20,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Ensure required directories exist
-// Use /tmp on production (Render, etc.) for ephemeral file storage
-const isProduction = process.env.NODE_ENV === "production";
-const uploadsDir = isProduction
+// Use /tmp on Vercel/production (ephemeral filesystem)
+const isServerless =
+  process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+const uploadsDir = isServerless
   ? "/tmp/uploads"
   : path.join(__dirname, "../uploads");
-const compressedDir = isProduction
+const compressedDir = isServerless
   ? "/tmp/compressed"
   : path.join(__dirname, "../compressed");
 

@@ -14,14 +14,20 @@ const { createWriteStream } = require("fs");
 
 const compressionService = require("../services/compressionService");
 
-// Get upload directory - use /tmp on production
-const isProduction = process.env.NODE_ENV === "production";
-const uploadsDir = isProduction
+// Get upload directory - use /tmp on Vercel/production (ephemeral filesystem)
+const isServerless =
+  process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+const uploadsDir = isServerless
   ? "/tmp/uploads"
   : path.join(__dirname, "../../uploads");
-const compressedDir = isProduction
+const compressedDir = isServerless
   ? "/tmp/compressed"
   : path.join(__dirname, "../../compressed");
+
+// Ensure directories exist
+const { existsSync, mkdirSync } = require("fs");
+if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true });
+if (!existsSync(compressedDir)) mkdirSync(compressedDir, { recursive: true });
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({

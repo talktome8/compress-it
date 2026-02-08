@@ -13,11 +13,16 @@ const path = require("path");
 const fs = require("fs").promises;
 const { v4: uuidv4 } = require("uuid");
 
-// Get compressed directory - use /tmp on production
-const isProduction = process.env.NODE_ENV === "production";
-const compressedDir = isProduction
+// Get compressed directory - use /tmp on Vercel/production (ephemeral filesystem)
+const isServerless =
+  process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+const compressedDir = isServerless
   ? "/tmp/compressed"
   : path.join(__dirname, "../../compressed");
+
+// Ensure directory exists
+const { existsSync, mkdirSync } = require("fs");
+if (!existsSync(compressedDir)) mkdirSync(compressedDir, { recursive: true });
 
 // Compression settings by format
 const formatSettings = {
