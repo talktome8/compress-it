@@ -1,214 +1,621 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online image compression tool. Compress JPG, PNG, GIF, and WebP images with adjustable quality settings.">
-    <title>Compress-It | Free Image Compression Tool</title>
-    <link rel="stylesheet" href="css/styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Free online image and video compression tool. Compress JPG, PNG, GIF, WebP images and MP4, MOV, WebM videos right in your browser."
+    />
+    <title>Compress-It | Free Image & Video Compression Tool</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
     <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21,15 16,10 5,21"/>
-                    </svg>
-                    <span class="logo-text">Compress-It</span>
-                </div>
-                <nav class="nav">
-                    <span class="nav-badge">Free & Unlimited</span>
-                </nav>
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <div class="logo">
+            <svg
+              class="logo-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21,15 16,10 5,21" />
+            </svg>
+            <span class="logo-text">Compress-It</span>
+          </div>
+          <nav class="nav">
+            <span class="nav-badge">Free & Unlimited</span>
+          </nav>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main">
+        <!-- Hero Section -->
+        <section class="hero">
+          <h1>Compress Images & Videos Instantly</h1>
+          <p>
+            Reduce file sizes up to 80% without losing quality. Images are
+            processed on our server. Videos are compressed
+            <strong>entirely in your browser</strong> — nothing is uploaded.
+          </p>
+        </section>
+
+        <!-- Mode Tabs -->
+        <div class="mode-tabs">
+          <button
+            class="mode-tab active"
+            id="tabImages"
+            onclick="switchTab('images')"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21,15 16,10 5,21" />
+            </svg>
+            Images
+          </button>
+          <button class="mode-tab" id="tabVideos" onclick="switchTab('videos')">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polygon points="23,7 16,12 23,17" />
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+            </svg>
+            Videos
+          </button>
+        </div>
+
+        <!-- ============================================= -->
+        <!-- IMAGE MODE -->
+        <!-- ============================================= -->
+        <div id="imageMode">
+          <!-- Upload Section -->
+          <section class="upload-section">
+            <div class="upload-area" id="uploadArea">
+              <div class="upload-content">
+                <svg
+                  class="upload-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17,8 12,3 7,8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <h3>Drag & Drop Images Here</h3>
+                <p>or click to browse files</p>
+                <p class="upload-hint">
+                  Supports: JPG, PNG, GIF, WebP • Max 50MB per file • Up to 20
+                  files
+                </p>
+              </div>
+              <input
+                type="file"
+                id="fileInput"
+                multiple
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                hidden
+              />
             </div>
-        </header>
+          </section>
 
-        <!-- Main Content -->
-        <main class="main">
-            <!-- Hero Section -->
-            <section class="hero">
-                <h1>Compress Images Instantly</h1>
-                <p>Reduce image file sizes up to 80% without losing quality. Supports JPG, PNG, GIF, and WebP.</p>
-            </section>
-
-            <!-- Upload Section -->
-            <section class="upload-section">
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-content">
-                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17,8 12,3 7,8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                        <h3>Drag & Drop Images Here</h3>
-                        <p>or click to browse files</p>
-                        <p class="upload-hint">Supports: JPG, PNG, GIF, WebP • Max 50MB per file • Up to 20 files</p>
-                    </div>
-                    <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-                </div>
-            </section>
-
-            <!-- Settings Section -->
-            <section class="settings-section" id="settingsSection" style="display: none;">
-                <div class="settings-card">
-                    <h3>Compression Settings</h3>
-                    <div class="settings-grid">
-                        <div class="setting-group">
-                            <label for="qualitySlider">Quality: <span id="qualityValue">80</span>%</label>
-                            <input type="range" id="qualitySlider" min="1" max="100" value="80" class="slider">
-                            <div class="slider-labels">
-                                <span>Smaller Size</span>
-                                <span>Higher Quality</span>
-                            </div>
-                        </div>
-                        
-                        <div class="setting-group">
-                            <label for="outputFormat">Output Format</label>
-                            <select id="outputFormat" class="select">
-                                <option value="original">Keep Original Format</option>
-                                <option value="jpeg">Convert to JPEG</option>
-                                <option value="png">Convert to PNG</option>
-                                <option value="webp">Convert to WebP (Best)</option>
-                            </select>
-                        </div>
-
-                        <div class="setting-group">
-                            <label for="resizeWidth">Resize Width (optional)</label>
-                            <input type="number" id="resizeWidth" class="input" placeholder="e.g., 1920" min="1" max="10000">
-                        </div>
-
-                        <div class="setting-group">
-                            <label for="resizeHeight">Resize Height (optional)</label>
-                            <input type="number" id="resizeHeight" class="input" placeholder="e.g., 1080" min="1" max="10000">
-                        </div>
-                    </div>
-
-                    <div class="settings-actions">
-                        <button id="compressBtn" class="btn btn-primary btn-large">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="4,14 10,14 10,20"/>
-                                <polyline points="20,10 14,10 14,4"/>
-                                <line x1="14" y1="10" x2="21" y2="3"/>
-                                <line x1="3" y1="21" x2="10" y2="14"/>
-                            </svg>
-                            Compress All Images
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Progress Section -->
-            <section class="progress-section" id="progressSection" style="display: none;">
-                <div class="progress-card">
-                    <div class="progress-header">
-                        <span class="progress-title">Compressing images...</span>
-                        <span class="progress-count" id="progressCount">0/0</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Results Section -->
-            <section class="results-section" id="resultsSection" style="display: none;">
-                <div class="results-header">
-                    <div class="results-summary">
-                        <h2>Compression Complete!</h2>
-                        <div class="summary-stats">
-                            <div class="stat">
-                                <span class="stat-label">Original Size</span>
-                                <span class="stat-value" id="totalOriginal">0 KB</span>
-                            </div>
-                            <div class="stat stat-arrow">→</div>
-                            <div class="stat">
-                                <span class="stat-label">Compressed Size</span>
-                                <span class="stat-value" id="totalCompressed">0 KB</span>
-                            </div>
-                            <div class="stat stat-highlight">
-                                <span class="stat-label">Total Saved</span>
-                                <span class="stat-value" id="totalSaved">0%</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="results-actions">
-                        <button id="downloadAllBtn" class="btn btn-primary">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7,10 12,15 17,10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Download All (ZIP)
-                        </button>
-                        <button id="resetBtn" class="btn btn-secondary">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="1,4 1,10 7,10"/>
-                                <path d="M3.51,15a9,9,0,1,0,2.13-9.36L1,10"/>
-                            </svg>
-                            Compress More
-                        </button>
-                    </div>
+          <!-- Settings Section -->
+          <section
+            class="settings-section"
+            id="settingsSection"
+            style="display: none"
+          >
+            <div class="settings-card">
+              <h3>Compression Settings</h3>
+              <div class="settings-grid">
+                <div class="setting-group">
+                  <label for="qualitySlider"
+                    >Quality: <span id="qualityValue">80</span>%</label
+                  >
+                  <input
+                    type="range"
+                    id="qualitySlider"
+                    min="1"
+                    max="100"
+                    value="80"
+                    class="slider"
+                  />
+                  <div class="slider-labels">
+                    <span>Smaller Size</span>
+                    <span>Higher Quality</span>
+                  </div>
                 </div>
 
-                <div class="results-grid" id="resultsGrid">
-                    <!-- Results will be dynamically inserted here -->
+                <div class="setting-group">
+                  <label for="outputFormat">Output Format</label>
+                  <select id="outputFormat" class="select">
+                    <option value="original">Keep Original Format</option>
+                    <option value="jpeg">Convert to JPEG</option>
+                    <option value="png">Convert to PNG</option>
+                    <option value="webp">Convert to WebP (Best)</option>
+                  </select>
                 </div>
-            </section>
 
-            <!-- File List Section -->
-            <section class="files-section" id="filesSection" style="display: none;">
-                <div class="files-header">
-                    <h3>Selected Files (<span id="fileCount">0</span>)</h3>
-                    <button id="clearFilesBtn" class="btn btn-text">Clear All</button>
+                <div class="setting-group">
+                  <label for="resizeWidth">Resize Width (optional)</label>
+                  <input
+                    type="number"
+                    id="resizeWidth"
+                    class="input"
+                    placeholder="e.g., 1920"
+                    min="1"
+                    max="10000"
+                  />
                 </div>
-                <div class="files-list" id="filesList">
-                    <!-- File items will be dynamically inserted here -->
-                </div>
-            </section>
-        </main>
 
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="footer-content">
-                <p>Compress-It — Fast, Free, & Private Image Compression</p>
-                <p class="footer-note">Your images are processed securely and automatically deleted after 30 minutes.</p>
+                <div class="setting-group">
+                  <label for="resizeHeight">Resize Height (optional)</label>
+                  <input
+                    type="number"
+                    id="resizeHeight"
+                    class="input"
+                    placeholder="e.g., 1080"
+                    min="1"
+                    max="10000"
+                  />
+                </div>
+              </div>
+
+              <div class="settings-actions">
+                <button id="compressBtn" class="btn btn-primary btn-large">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="4,14 10,14 10,20" />
+                    <polyline points="20,10 14,10 14,4" />
+                    <line x1="14" y1="10" x2="21" y2="3" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Compress All Images
+                </button>
+              </div>
             </div>
-        </footer>
+          </section>
+
+          <!-- Progress Section -->
+          <section
+            class="progress-section"
+            id="progressSection"
+            style="display: none"
+          >
+            <div class="progress-card">
+              <div class="progress-header">
+                <span class="progress-title">Compressing images...</span>
+                <span class="progress-count" id="progressCount">0/0</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Results Section -->
+          <section
+            class="results-section"
+            id="resultsSection"
+            style="display: none"
+          >
+            <div class="results-header">
+              <div class="results-summary">
+                <h2>Compression Complete!</h2>
+                <div class="summary-stats">
+                  <div class="stat">
+                    <span class="stat-label">Original Size</span>
+                    <span class="stat-value" id="totalOriginal">0 KB</span>
+                  </div>
+                  <div class="stat stat-arrow">→</div>
+                  <div class="stat">
+                    <span class="stat-label">Compressed Size</span>
+                    <span class="stat-value" id="totalCompressed">0 KB</span>
+                  </div>
+                  <div class="stat stat-highlight">
+                    <span class="stat-label">Total Saved</span>
+                    <span class="stat-value" id="totalSaved">0%</span>
+                  </div>
+                </div>
+              </div>
+              <div class="results-actions">
+                <button id="downloadAllBtn" class="btn btn-primary">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7,10 12,15 17,10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download All (ZIP)
+                </button>
+                <button id="resetBtn" class="btn btn-secondary">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="1,4 1,10 7,10" />
+                    <path d="M3.51,15a9,9,0,1,0,2.13-9.36L1,10" />
+                  </svg>
+                  Compress More
+                </button>
+              </div>
+            </div>
+
+            <div class="results-grid" id="resultsGrid">
+              <!-- Results will be dynamically inserted here -->
+            </div>
+          </section>
+
+          <!-- File List Section -->
+          <section
+            class="files-section"
+            id="filesSection"
+            style="display: none"
+          >
+            <div class="files-header">
+              <h3>Selected Files (<span id="fileCount">0</span>)</h3>
+              <button id="clearFilesBtn" class="btn btn-text">Clear All</button>
+            </div>
+            <div class="files-list" id="filesList">
+              <!-- File items will be dynamically inserted here -->
+            </div>
+          </section>
+        </div>
+        <!-- end imageMode -->
+
+        <!-- ============================================= -->
+        <!-- VIDEO MODE -->
+        <!-- ============================================= -->
+        <div id="videoMode" style="display: none">
+          <!-- Video Upload Section -->
+          <section class="upload-section">
+            <div class="upload-area" id="videoUploadArea">
+              <div class="upload-content">
+                <svg
+                  class="upload-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polygon points="23,7 16,12 23,17" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
+                <h3>Drag & Drop a Video Here</h3>
+                <p>or click to browse files</p>
+                <p class="upload-hint">
+                  Supports: MP4, MOV, WebM, AVI, MKV • Processed in your browser
+                  — never uploaded
+                </p>
+              </div>
+              <input
+                type="file"
+                id="videoFileInput"
+                accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska,.mp4,.mov,.webm,.avi,.mkv"
+                hidden
+              />
+            </div>
+          </section>
+
+          <!-- Video Info & Settings -->
+          <section
+            class="settings-section"
+            id="videoSettingsSection"
+            style="display: none"
+          >
+            <div class="settings-card">
+              <!-- Video file info -->
+              <div class="video-file-info" id="videoFileInfo">
+                <div class="video-file-details">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polygon points="23,7 16,12 23,17" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                  <div>
+                    <div class="video-file-name" id="videoFileName">—</div>
+                    <div class="video-file-meta">
+                      <span id="videoFileSize">—</span>
+                      <span>•</span>
+                      <span id="videoFileDuration">—</span>
+                      <span>•</span>
+                      <span id="videoFileResolution">—</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  class="btn btn-text"
+                  id="videoClearBtn"
+                  onclick="clearVideo()"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  Remove
+                </button>
+              </div>
+
+              <h3>Video Compression Settings</h3>
+              <div class="settings-grid">
+                <div class="setting-group">
+                  <label for="videoTargetSize">Target File Size</label>
+                  <select id="videoTargetSize" class="select">
+                    <option value="16">16 MB (Discord free)</option>
+                    <option value="25">25 MB (Email)</option>
+                    <option value="50">50 MB (WhatsApp status)</option>
+                    <option value="100">100 MB</option>
+                    <option value="180" selected>
+                      180 MB (WhatsApp group)
+                    </option>
+                    <option value="256">256 MB</option>
+                    <option value="500">500 MB</option>
+                    <option value="custom">Custom...</option>
+                  </select>
+                </div>
+
+                <div
+                  class="setting-group"
+                  id="customSizeGroup"
+                  style="display: none"
+                >
+                  <label for="videoCustomSize">Custom Size (MB)</label>
+                  <input
+                    type="number"
+                    id="videoCustomSize"
+                    class="input"
+                    placeholder="e.g., 200"
+                    min="1"
+                    max="10000"
+                  />
+                </div>
+
+                <div class="setting-group">
+                  <label for="videoQualityPreset">Quality Preset</label>
+                  <select id="videoQualityPreset" class="select">
+                    <option value="high">High Quality (slower)</option>
+                    <option value="medium" selected>
+                      Balanced (recommended)
+                    </option>
+                    <option value="low">Smaller Size (faster)</option>
+                  </select>
+                </div>
+
+                <div class="setting-group">
+                  <label for="videoOutputFormat">Output Format</label>
+                  <select id="videoOutputFormat" class="select">
+                    <option value="mp4" selected>
+                      MP4 (Best compatibility)
+                    </option>
+                    <option value="webm">WebM (Smaller size)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="video-privacy-note">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span
+                  >100% Private — Your video is processed entirely in your
+                  browser. Nothing is uploaded to any server.</span
+                >
+              </div>
+
+              <div class="settings-actions">
+                <button
+                  id="videoCompressBtn"
+                  class="btn btn-primary btn-large"
+                  onclick="startVideoCompression()"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="4,14 10,14 10,20" />
+                    <polyline points="20,10 14,10 14,4" />
+                    <line x1="14" y1="10" x2="21" y2="3" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Compress Video
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Video Progress Section -->
+          <section
+            class="progress-section"
+            id="videoProgressSection"
+            style="display: none"
+          >
+            <div class="progress-card">
+              <div class="progress-header">
+                <span class="progress-title" id="videoProgressTitle"
+                  >Loading FFmpeg...</span
+                >
+                <span class="progress-count" id="videoProgressPercent">0%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" id="videoProgressFill"></div>
+              </div>
+              <div class="video-progress-details">
+                <span id="videoProgressETA">Estimating time...</span>
+                <button
+                  class="btn btn-text"
+                  id="videoCancelBtn"
+                  onclick="cancelVideoCompression()"
+                  style="display: none"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Video Result Section -->
+          <section
+            class="results-section"
+            id="videoResultSection"
+            style="display: none"
+          >
+            <div class="results-header">
+              <div class="results-summary">
+                <h2>🎬 Video Compressed!</h2>
+                <div class="summary-stats">
+                  <div class="stat">
+                    <span class="stat-label">Original Size</span>
+                    <span class="stat-value" id="videoOriginalSize">—</span>
+                  </div>
+                  <div class="stat stat-arrow">→</div>
+                  <div class="stat">
+                    <span class="stat-label">Compressed Size</span>
+                    <span class="stat-value" id="videoCompressedSize">—</span>
+                  </div>
+                  <div class="stat stat-highlight">
+                    <span class="stat-label">Saved</span>
+                    <span class="stat-value" id="videoSavedPercent">—</span>
+                  </div>
+                </div>
+              </div>
+              <div class="results-actions">
+                <button
+                  id="videoDownloadBtn"
+                  class="btn btn-primary"
+                  onclick="downloadCompressedVideo()"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7,10 12,15 17,10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download Video
+                </button>
+                <button class="btn btn-secondary" onclick="resetVideo()">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="1,4 1,10 7,10" />
+                    <path d="M3.51,15a9,9,0,1,0,2.13-9.36L1,10" />
+                  </svg>
+                  Compress Another
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+        <!-- end videoMode -->
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="footer-content">
+          <p>Compress-It — Fast, Free, & Private Image & Video Compression</p>
+          <p class="footer-note">
+            Images are processed securely on server and auto-deleted after 30
+            minutes. Videos are compressed entirely in your browser — never
+            uploaded.
+          </p>
+        </div>
+      </footer>
     </div>
 
     <!-- Preview Modal -->
     <div class="modal" id="previewModal">
-        <div class="modal-overlay" id="modalOverlay"></div>
-        <div class="modal-content">
-            <button class="modal-close" id="modalClose">×</button>
-            <div class="preview-container">
-                <div class="preview-panel">
-                    <h4>Original</h4>
-                    <div class="preview-image-wrapper">
-                        <img id="previewOriginal" src="" alt="Original image">
-                    </div>
-                    <span class="preview-size" id="previewOriginalSize"></span>
-                </div>
-                <div class="preview-panel">
-                    <h4>Compressed</h4>
-                    <div class="preview-image-wrapper">
-                        <img id="previewCompressed" src="" alt="Compressed image">
-                    </div>
-                    <span class="preview-size" id="previewCompressedSize"></span>
-                </div>
+      <div class="modal-overlay" id="modalOverlay"></div>
+      <div class="modal-content">
+        <button class="modal-close" id="modalClose">×</button>
+        <div class="preview-container">
+          <div class="preview-panel">
+            <h4>Original</h4>
+            <div class="preview-image-wrapper">
+              <img id="previewOriginal" src="" alt="Original image" />
             </div>
+            <span class="preview-size" id="previewOriginalSize"></span>
+          </div>
+          <div class="preview-panel">
+            <h4>Compressed</h4>
+            <div class="preview-image-wrapper">
+              <img id="previewCompressed" src="" alt="Compressed image" />
+            </div>
+            <span class="preview-size" id="previewCompressedSize"></span>
+          </div>
         </div>
+      </div>
     </div>
 
     <!-- Toast Notifications -->
     <div class="toast-container" id="toastContainer"></div>
 
     <script src="js/app.js"></script>
-</body>
+    <script src="js/video.js"></script>
+  </body>
 </html>

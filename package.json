@@ -1,7 +1,7 @@
 {
   "name": "compress-it",
   "version": "1.0.0",
-  "description": "A fast, free image compression web application supporting JPG, PNG, GIF, and WebP",
+  "description": "A fast, free image & video compression web application. Compress images on the server and videos in the browser.",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
