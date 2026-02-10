@@ -66,10 +66,11 @@
     },
     "extraResources": [
       {
-        "from": "node_modules/ffmpeg-static/ffmpeg.exe",
-        "to": "ffmpeg.exe",
+        "from": "node_modules/ffmpeg-static/",
+        "to": "ffmpeg-static/",
         "filter": [
-          "**/*"
+          "ffmpeg",
+          "ffmpeg.exe"
         ]
       }
     ]

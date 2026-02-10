@@ -15,6 +15,20 @@ const ffprobeStatic = require("ffprobe-static");
 ffmpeg.setFfmpegPath(ffmpegStatic);
 ffmpeg.setFfprobePath(ffprobeStatic.path);
 
+/**
+ * Safely parse an FFmpeg frame rate string like "30/1" or "29.97".
+ * Never uses eval().
+ */
+function parseFps(rateStr) {
+  if (!rateStr) return 30;
+  if (rateStr.includes("/")) {
+    const [num, den] = rateStr.split("/").map(Number);
+    return den ? num / den : 30;
+  }
+  const n = parseFloat(rateStr);
+  return isFinite(n) ? n : 30;
+}
+
 let mainWindow;
 
 function createWindow() {
@@ -156,7 +170,7 @@ ipcMain.handle("get-video-info", async (event, filePath) => {
         size: metadata.format.size,
         width: videoStream?.width,
         height: videoStream?.height,
-        fps: videoStream ? eval(videoStream.r_frame_rate) : 30,
+        fps: videoStream ? parseFps(videoStream.r_frame_rate) : 30,
         videoCodec: videoStream?.codec_name,
         audioCodec: audioStream?.codec_name,
         bitrate: metadata.format.bit_rate,
@@ -196,65 +210,55 @@ ipcMain.handle(
         };
         const { preset, crf } = presetMap[options.quality || "medium"];
 
-        // Scale settings
+        // Scale settings — only downscale, never upscale
+        const videoStream = metadata.streams.find(
+          (s) => s.codec_type === "video",
+        );
+        const sourceHeight = videoStream?.height || 9999;
         const fileSizeMB = metadata.format.size / (1024 * 1024);
         const compressionRatio = options.targetSizeMB / fileSizeMB;
         let scaleFilter = null;
-        if (compressionRatio < 0.15) {
-          scaleFilter = "scale=-2:480";
-        } else if (compressionRatio < 0.35) {
-          scaleFilter = "scale=-2:720";
+        if (compressionRatio < 0.15 && sourceHeight > 480) {
+          scaleFilter = "scale=-2:'min(ih,480)'";
+        } else if (compressionRatio < 0.35 && sourceHeight > 720) {
+          scaleFilter = "scale=-2:'min(ih,720)'";
         }
 
-        let command = ffmpeg(filePath)
-          .videoCodec("libx264")
-          .addOption("-preset", preset)
-          .addOption("-crf", crf.toString())
-          .addOption("-maxrate", `${videoBitrate}k`)
-          .addOption("-bufsize", `${videoBitrate * 2}k`)
-          .audioCodec("aac")
-          .audioBitrate(`${audioBitrate}k`)
-          .addOption("-movflags", "+faststart")
-          .addOption("-threads", "0")
-          .output(outputPath)
-          .on("progress", (progress) => {
-            const percent = Math.min(Math.round(progress.percent || 0), 99);
-            mainWindow.webContents.send("video-progress", {
-              percent,
-              timemark: progress.timemark,
-              speed: progress.currentFps
-                ? `${progress.currentFps} fps`
-                : "calculating...",
-            });
-          })
-          .on("end", () => {
-            activeProcesses.delete(filePath);
-            const stats = fs.statSync(outputPath);
-            resolve({
-              success: true,
-              outputPath,
-              originalSize: metadata.format.size,
-              compressedSize: stats.size,
-            });
-          })
-          .on("error", (err) => {
-            activeProcesses.delete(filePath);
-            if (
-              err.message.includes("SIGKILL") ||
-              err.message.includes("killed")
-            ) {
-              resolve({ success: false, cancelled: true });
-            } else {
-              resolve({ success: false, error: err.message });
-            }
+        // Shared event handlers
+        const onProgress = (progress) => {
+          const percent = Math.min(Math.round(progress.percent || 0), 99);
+          mainWindow.webContents.send("video-progress", {
+            percent,
+            timemark: progress.timemark,
+            speed: progress.currentFps
+              ? `${progress.currentFps} fps`
+              : "calculating...",
           });
+        };
+        const onEnd = () => {
+          activeProcesses.delete(filePath);
+          const stats = fs.statSync(outputPath);
+          resolve({
+            success: true,
+            outputPath,
+            originalSize: metadata.format.size,
+            compressedSize: stats.size,
+          });
+        };
+        const onError = (err) => {
+          activeProcesses.delete(filePath);
+          if (
+            err.message.includes("SIGKILL") ||
+            err.message.includes("killed")
+          ) {
+            resolve({ success: false, cancelled: true });
+          } else {
+            resolve({ success: false, error: err.message });
+          }
+        };
 
-        // Add scale filter
-        if (scaleFilter) {
-          command = command.videoFilter(scaleFilter);
-        }
-
-        // WebM output
+        // Build command based on output format
+        let command;
         if (options.outputFormat === "webm") {
           command = ffmpeg(filePath)
             .videoCodec("libvpx-vp9")
@@ -266,42 +270,30 @@ ipcMain.handle(
             .addOption("-threads", "0")
             .audioCodec("libopus")
             .audioBitrate(`${audioBitrate}k`)
-            .output(outputPath)
-            .on("progress", (progress) => {
-              const percent = Math.min(Math.round(progress.percent || 0), 99);
-              mainWindow.webContents.send("video-progress", {
-                percent,
-                timemark: progress.timemark,
-                speed: progress.currentFps
-                  ? `${progress.currentFps} fps`
-                  : "calculating...",
-              });
-            })
-            .on("end", () => {
-              activeProcesses.delete(filePath);
-              const stats = fs.statSync(outputPath);
-              resolve({
-                success: true,
-                outputPath,
-                originalSize: metadata.format.size,
-                compressedSize: stats.size,
-              });
-            })
-            .on("error", (err) => {
-              activeProcesses.delete(filePath);
-              if (
-                err.message.includes("SIGKILL") ||
-                err.message.includes("killed")
-              ) {
-                resolve({ success: false, cancelled: true });
-              } else {
-                resolve({ success: false, error: err.message });
-              }
-            });
+            .output(outputPath);
+        } else {
+          command = ffmpeg(filePath)
+            .videoCodec("libx264")
+            .addOption("-preset", preset)
+            .addOption("-crf", crf.toString())
+            .addOption("-maxrate", `${videoBitrate}k`)
+            .addOption("-bufsize", `${videoBitrate * 2}k`)
+            .audioCodec("aac")
+            .audioBitrate(`${audioBitrate}k`)
+            .addOption("-movflags", "+faststart")
+            .addOption("-threads", "0")
+            .output(outputPath);
+        }
 
-          if (scaleFilter) {
-            command = command.videoFilter(scaleFilter);
-          }
+        // Attach shared handlers
+        command
+          .on("progress", onProgress)
+          .on("end", onEnd)
+          .on("error", onError);
+
+        // Add scale filter
+        if (scaleFilter) {
+          command = command.videoFilter(scaleFilter);
         }
 
         // Store for cancellation

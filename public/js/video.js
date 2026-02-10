@@ -280,15 +280,20 @@ async function startVideoCompression() {
     // ALWAYS cap resolution for WASM performance.
     // Even "high quality" gets capped at 720p — encoding 1080p+ in WASM is far too slow.
     // For aggressive compression we go to 480p.
-    // Using -2:N means "scale height to N, calculate width to keep aspect ratio (divisible by 2)".
-    // If video is already smaller than target, it won't upscale (we add :force_original_aspect_ratio).
+    // Using scale=-2:'min(ih,N)' means "downscale to N if taller, otherwise keep original".
+    // This prevents upscaling a 480p video to 720p.
     const compressionRatio = targetSizeMB / fileSizeMB;
     let scaleHeight = 720;
     if (compressionRatio < 0.15) {
       scaleHeight = 480;
     }
     // Cap framerate at 30fps — huge speed boost, no visible quality loss for sharing
-    const filterArg = ["-vf", `scale=-2:${scaleHeight}`, "-r", "30"];
+    const filterArg = [
+      "-vf",
+      `scale=-2:'min(ih\\,${scaleHeight})'`,
+      "-r",
+      "30",
+    ];
 
     // Build FFmpeg command — optimized for WASM speed
     let args;

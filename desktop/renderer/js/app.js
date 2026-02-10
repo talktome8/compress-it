@@ -282,18 +282,6 @@ async function compressVideo() {
   document.getElementById("vidProgressPercent").textContent = "0%";
   document.getElementById("vidProgressSpeed").textContent = "Starting...";
 
-  // Listen for progress
-  window.compressIt.onVideoProgress((data) => {
-    document.getElementById("vidProgressFill").style.width = `${data.percent}%`;
-    document.getElementById(
-      "vidProgressPercent",
-    ).textContent = `${data.percent}%`;
-    document.getElementById(
-      "vidProgressLabel",
-    ).textContent = `Compressing... ${data.percent}%`;
-    document.getElementById("vidProgressSpeed").textContent = data.speed || "—";
-  });
-
   const result = await window.compressIt.compressVideo(
     state.videoFile.path,
     savePath,
@@ -347,6 +335,18 @@ function openVideoFile() {
 // =============================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Video progress listener — register once to avoid accumulating listeners
+  window.compressIt.onVideoProgress((data) => {
+    document.getElementById("vidProgressFill").style.width = `${data.percent}%`;
+    document.getElementById(
+      "vidProgressPercent",
+    ).textContent = `${data.percent}%`;
+    document.getElementById(
+      "vidProgressLabel",
+    ).textContent = `Compressing... ${data.percent}%`;
+    document.getElementById("vidProgressSpeed").textContent = data.speed || "—";
+  });
+
   // Quality slider
   const slider = document.getElementById("qualitySlider");
   const valDisplay = document.getElementById("qualityVal");
