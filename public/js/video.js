@@ -267,12 +267,27 @@ async function startVideoCompression() {
     );
 
     // Apply quality preset modifier
+    // NOTE: In WebAssembly, encoding is ~10-20x slower than native.
+    // Always use fastest presets and rely on CRF/bitrate for quality control.
     const presetMap = {
-      high: { preset: "slow", crf: 23 },
-      medium: { preset: "medium", crf: 28 },
-      low: { preset: "fast", crf: 32 },
+      high: { preset: "veryfast", crf: 23 },
+      medium: { preset: "ultrafast", crf: 26 },
+      low: { preset: "ultrafast", crf: 30 },
     };
     const { preset, crf } = presetMap[qualityPreset];
+
+    // Scale down resolution for large compressions to speed things up significantly
+    // and help hit target size. WhatsApp/Discord don't need full 1080p.
+    const scaleFilter = [];
+    const compressionRatio = targetSizeMB / fileSizeMB;
+    if (compressionRatio < 0.15) {
+      // Aggressive compression needed — scale to 480p
+      scaleFilter.push("-vf", "scale=-2:480");
+    } else if (compressionRatio < 0.35) {
+      // Moderate compression — scale to 720p
+      scaleFilter.push("-vf", "scale=-2:720");
+    }
+    // else: keep original resolution
 
     // Build FFmpeg command
     let args;
@@ -280,6 +295,7 @@ async function startVideoCompression() {
       args = [
         "-i",
         inputName,
+        ...scaleFilter,
         "-c:v",
         "libx264",
         "-preset",
@@ -304,12 +320,17 @@ async function startVideoCompression() {
       args = [
         "-i",
         inputName,
+        ...scaleFilter,
         "-c:v",
         "libvpx-vp9",
         "-crf",
         crf.toString(),
         "-b:v",
         `${videoBitrate}k`,
+        "-deadline",
+        "realtime",
+        "-cpu-used",
+        "8",
         "-c:a",
         "libopus",
         "-b:a",
@@ -333,64 +354,6 @@ async function startVideoCompression() {
     // Generate filename
     const baseName = videoState.file.name.replace(/\.[^.]+$/, "");
     videoState.compressedFileName = `${baseName}.${outputFormat}`;
-
-    // Check if it actually got smaller — if not, try a second pass with lower bitrate
-    if (videoState.compressedBlob.size > targetSizeBytes * 1.05) {
-      // Recalculate with stricter bitrate
-      const ratio = targetSizeBytes / videoState.compressedBlob.size;
-      videoBitrate = Math.max(50, Math.floor(videoBitrate * ratio * 0.9));
-
-      updateVideoProgress(50, "Optimizing further...", "Adjusting bitrate");
-
-      // Rewrite input (it was consumed)
-      await ffmpeg.writeFile(inputName, new Uint8Array(fileData));
-
-      if (outputFormat === "mp4") {
-        args = [
-          "-i",
-          inputName,
-          "-c:v",
-          "libx264",
-          "-preset",
-          preset,
-          "-b:v",
-          `${videoBitrate}k`,
-          "-maxrate",
-          `${videoBitrate}k`,
-          "-bufsize",
-          `${videoBitrate * 2}k`,
-          "-c:a",
-          "aac",
-          "-b:a",
-          `${Math.min(audioBitrate, 96)}k`,
-          "-movflags",
-          "+faststart",
-          "-y",
-          outputName,
-        ];
-      } else {
-        args = [
-          "-i",
-          inputName,
-          "-c:v",
-          "libvpx-vp9",
-          "-b:v",
-          `${videoBitrate}k`,
-          "-c:a",
-          "libopus",
-          "-b:a",
-          `${Math.min(audioBitrate, 96)}k`,
-          "-y",
-          outputName,
-        ];
-      }
-
-      videoState.startTime = Date.now();
-      await ffmpeg.exec(args);
-
-      const data2 = await ffmpeg.readFile(outputName);
-      videoState.compressedBlob = new Blob([data2.buffer], { type: mimeType });
-    }
 
     // Clean up virtual filesystem
     try {
