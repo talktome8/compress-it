@@ -87,8 +87,7 @@ async function loadFFmpeg() {
 
     const ffmpeg = new FFmpeg();
 
-    // Restore original Worker constructor immediately after FFmpeg is created
-    window.Worker = OriginalWorker;
+    // Keep patched Worker active — DO NOT restore yet, ffmpeg.load() creates the Worker
 
     // Progress callback for loading
     ffmpeg.on("log", ({ message }) => {
@@ -119,6 +118,9 @@ async function loadFFmpeg() {
       coreURL,
       wasmURL,
     });
+
+    // Restore original Worker constructor after ffmpeg.load() completes
+    window.Worker = OriginalWorker;
 
     videoState.ffmpeg = ffmpeg;
     videoState.isLoading = false;
