@@ -92,13 +92,18 @@ async function loadFFmpeg() {
       }
     });
 
-    // Load FFmpeg core with CORS-friendly URLs
+    // Load FFmpeg core with CORS-friendly blob URLs (avoids cross-origin Worker restrictions)
     const coreURL = await toBlobURL(FFMPEG_CORE_URL, "text/javascript");
     const wasmURL = await toBlobURL(FFMPEG_WASM_URL, "application/wasm");
+    const workerURL = await toBlobURL(
+      "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js",
+      "text/javascript",
+    );
 
     await ffmpeg.load({
       coreURL,
       wasmURL,
+      workerURL,
     });
 
     videoState.ffmpeg = ffmpeg;
