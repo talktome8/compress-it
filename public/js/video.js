@@ -61,28 +61,24 @@ async function loadFFmpeg() {
   );
 
   try {
-    // Dynamically import FFmpeg
+    // Dynamically import FFmpeg class and utilities
     const { FFmpeg } = await import(
       "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js"
     );
-    const { toBlobURL, fetchFile } = await import(
+    const { toBlobURL } = await import(
       "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js"
     );
 
-    // FFmpeg internally creates a Worker from unpkg which violates same-origin policy.
-    // Fix: fetch the worker script ourselves, create a same-origin blob URL,
-    // and intercept the Worker constructor so FFmpeg uses our blob URL instead.
-    const workerJSBlobURL = await toBlobURL(
-      "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js",
-      "text/javascript",
-    );
-
+    // FFmpeg internally creates a cross-origin Worker from unpkg which browsers block.
+    // Fix: intercept the Worker constructor so it uses our self-hosted worker file
+    // (public/js/ffmpeg-worker.js) which has all dependencies inlined.
     const OriginalWorker = window.Worker;
     window.Worker = class PatchedWorker extends OriginalWorker {
       constructor(url, opts) {
         const urlStr = url?.toString() || "";
         if (urlStr.includes("unpkg.com") || urlStr.includes("ffmpeg")) {
-          super(workerJSBlobURL, opts);
+          // Use our self-hosted worker (classic script, not module)
+          super("/js/ffmpeg-worker.js");
         } else {
           super(url, opts);
         }
@@ -90,6 +86,9 @@ async function loadFFmpeg() {
     };
 
     const ffmpeg = new FFmpeg();
+
+    // Restore original Worker constructor immediately after FFmpeg is created
+    window.Worker = OriginalWorker;
 
     // Progress callback for loading
     ffmpeg.on("log", ({ message }) => {
@@ -120,9 +119,6 @@ async function loadFFmpeg() {
       coreURL,
       wasmURL,
     });
-
-    // Restore original Worker constructor
-    window.Worker = OriginalWorker;
 
     videoState.ffmpeg = ffmpeg;
     videoState.isLoading = false;
