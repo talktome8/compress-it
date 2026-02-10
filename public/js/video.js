@@ -65,9 +65,29 @@ async function loadFFmpeg() {
     const { FFmpeg } = await import(
       "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js"
     );
-    const { toBlobURL } = await import(
+    const { toBlobURL, fetchFile } = await import(
       "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js"
     );
+
+    // FFmpeg internally creates a Worker from unpkg which violates same-origin policy.
+    // Fix: fetch the worker script ourselves, create a same-origin blob URL,
+    // and intercept the Worker constructor so FFmpeg uses our blob URL instead.
+    const workerJSBlobURL = await toBlobURL(
+      "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js",
+      "text/javascript",
+    );
+
+    const OriginalWorker = window.Worker;
+    window.Worker = class PatchedWorker extends OriginalWorker {
+      constructor(url, opts) {
+        const urlStr = url?.toString() || "";
+        if (urlStr.includes("unpkg.com") || urlStr.includes("ffmpeg")) {
+          super(workerJSBlobURL, opts);
+        } else {
+          super(url, opts);
+        }
+      }
+    };
 
     const ffmpeg = new FFmpeg();
 
@@ -92,19 +112,17 @@ async function loadFFmpeg() {
       }
     });
 
-    // Load FFmpeg core with CORS-friendly blob URLs (avoids cross-origin Worker restrictions)
+    // Load FFmpeg core with CORS-friendly blob URLs
     const coreURL = await toBlobURL(FFMPEG_CORE_URL, "text/javascript");
     const wasmURL = await toBlobURL(FFMPEG_WASM_URL, "application/wasm");
-    const workerURL = await toBlobURL(
-      "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js",
-      "text/javascript",
-    );
 
     await ffmpeg.load({
       coreURL,
       wasmURL,
-      workerURL,
     });
+
+    // Restore original Worker constructor
+    window.Worker = OriginalWorker;
 
     videoState.ffmpeg = ffmpeg;
     videoState.isLoading = false;
