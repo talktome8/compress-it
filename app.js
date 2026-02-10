@@ -1,16 +1,21 @@
 /**
- * Vercel Serverless Function Entry Point
- * Wraps the Express app for Vercel's serverless environment
+ * Compress-It: Express App Entry Point for Vercel
+ *
+ * This file serves as the Vercel-compatible entry point.
+ * For local development, use server/index.js instead.
+ *
+ * Vercel auto-detects app.js at the project root and deploys
+ * the Express app as a serverless function with Fluid Compute.
+ * Static files from public/ are served automatically via CDN.
  */
 
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const fs = require("fs").promises;
 const { existsSync, mkdirSync } = require("fs");
 
 // Import routes
-const compressionRoutes = require("../server/routes/compression");
+const compressionRoutes = require("./server/routes/compression");
 
 // Initialize Express app
 const app = express();
@@ -52,4 +57,5 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Export the Express app (required by Vercel)
 module.exports = app;
