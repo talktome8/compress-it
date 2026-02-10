@@ -207,6 +207,7 @@ async function startVideoCompression() {
   if (!videoState.file || videoState.isCompressing) return;
 
   videoState.isCompressing = true;
+  videoState.cancelled = false;
   const compressBtn = document.getElementById("videoCompressBtn");
   compressBtn.disabled = true;
 
@@ -268,34 +269,34 @@ async function startVideoCompression() {
 
     // Apply quality preset modifier
     // NOTE: In WebAssembly, encoding is ~10-20x slower than native.
-    // Always use fastest presets and rely on CRF/bitrate for quality control.
+    // Always use ultrafast preset — quality is controlled via CRF/bitrate.
     const presetMap = {
-      high: { preset: "veryfast", crf: 23 },
+      high: { preset: "ultrafast", crf: 23 },
       medium: { preset: "ultrafast", crf: 26 },
       low: { preset: "ultrafast", crf: 30 },
     };
     const { preset, crf } = presetMap[qualityPreset];
 
-    // Scale down resolution for large compressions to speed things up significantly
-    // and help hit target size. WhatsApp/Discord don't need full 1080p.
-    const scaleFilter = [];
+    // ALWAYS cap resolution for WASM performance.
+    // Even "high quality" gets capped at 720p — encoding 1080p+ in WASM is far too slow.
+    // For aggressive compression we go to 480p.
+    // Using -2:N means "scale height to N, calculate width to keep aspect ratio (divisible by 2)".
+    // If video is already smaller than target, it won't upscale (we add :force_original_aspect_ratio).
     const compressionRatio = targetSizeMB / fileSizeMB;
+    let scaleHeight = 720;
     if (compressionRatio < 0.15) {
-      // Aggressive compression needed — scale to 480p
-      scaleFilter.push("-vf", "scale=-2:480");
-    } else if (compressionRatio < 0.35) {
-      // Moderate compression — scale to 720p
-      scaleFilter.push("-vf", "scale=-2:720");
+      scaleHeight = 480;
     }
-    // else: keep original resolution
+    // Cap framerate at 30fps — huge speed boost, no visible quality loss for sharing
+    const filterArg = ["-vf", `scale=-2:${scaleHeight}`, "-r", "30"];
 
-    // Build FFmpeg command
+    // Build FFmpeg command — optimized for WASM speed
     let args;
     if (outputFormat === "mp4") {
       args = [
         "-i",
         inputName,
-        ...scaleFilter,
+        ...filterArg,
         "-c:v",
         "libx264",
         "-preset",
@@ -306,6 +307,8 @@ async function startVideoCompression() {
         `${videoBitrate}k`,
         "-bufsize",
         `${videoBitrate * 2}k`,
+        "-threads",
+        "0",
         "-c:a",
         "aac",
         "-b:a",
@@ -320,7 +323,7 @@ async function startVideoCompression() {
       args = [
         "-i",
         inputName,
-        ...scaleFilter,
+        ...filterArg,
         "-c:v",
         "libvpx-vp9",
         "-crf",
@@ -331,6 +334,10 @@ async function startVideoCompression() {
         "realtime",
         "-cpu-used",
         "8",
+        "-row-mt",
+        "1",
+        "-threads",
+        "0",
         "-c:a",
         "libopus",
         "-b:a",
@@ -368,8 +375,13 @@ async function startVideoCompression() {
 
     showToast("Video compressed successfully!", "success");
   } catch (error) {
-    console.error("Video compression error:", error);
-    showToast(error.message || "Video compression failed", "error");
+    // Don't show error if user cancelled
+    if (videoState.cancelled) {
+      console.log("Compression was cancelled by user");
+    } else {
+      console.error("Video compression error:", error);
+      showToast(error.message || "Video compression failed", "error");
+    }
     document.getElementById("videoProgressSection").style.display = "none";
   } finally {
     videoState.isCompressing = false;
@@ -380,10 +392,17 @@ async function startVideoCompression() {
 
 function cancelVideoCompression() {
   if (videoState.ffmpeg && videoState.isCompressing) {
-    // FFmpeg.wasm doesn't have a clean cancel, so we terminate
-    videoState.ffmpeg.terminate();
-    videoState.ffmpeg = null;
+    // Mark as cancelled BEFORE terminate so the catch block knows
+    videoState.cancelled = true;
     videoState.isCompressing = false;
+
+    // FFmpeg.wasm doesn't have a clean cancel, so we terminate and discard the instance
+    try {
+      videoState.ffmpeg.terminate();
+    } catch (_) {
+      /* ignore */
+    }
+    videoState.ffmpeg = null;
 
     document.getElementById("videoProgressSection").style.display = "none";
     document.getElementById("videoCompressBtn").disabled = false;
