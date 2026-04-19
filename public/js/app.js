@@ -137,8 +137,8 @@ async function handleFiles(fileList) {
         }
 
         // Validate file size
-        if (file.size > 50 * 1024 * 1024) {
-            showToast(`${file.name}: File too large. Maximum size is 50MB.`, 'error');
+        if (file.size > 4 * 1024 * 1024) {
+            showToast(`${file.name}: File too large. Maximum size is 4MB on the web version. Use desktop app for larger files.`, 'error');
             continue;
         }
 
