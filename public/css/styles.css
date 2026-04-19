@@ -106,6 +106,21 @@ a:hover {
     padding: 0 var(--spacing-md);
 }
 
+.notice-banner {
+    background: linear-gradient(135deg, var(--warning-color), #F97316);
+    color: white;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+    font-weight: 500;
+    box-shadow: var(--shadow-md);
+}
+
+.notice-banner a {
+    color: white;
+}
+
 .section {
     background: var(--bg-primary);
     border-radius: var(--border-radius);

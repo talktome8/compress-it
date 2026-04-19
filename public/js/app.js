@@ -3,7 +3,9 @@
  * Handles file uploads, compression, previews, and downloads
  */
 
-console.log('Compress-It initialized');
+const APP_VERSION = '2.0.1';
+console.log(`Compress-It initialized v${APP_VERSION}`);
+console.log('Max file size: 4MB (Vercel limit)');
 
 // =============================================================================
 // State Management
@@ -122,6 +124,8 @@ function isValidImageType(file) {
 async function handleFiles(fileList) {
     const files = Array.from(fileList);
     
+    console.log(`Processing ${files.length} files...`);
+    
     // Validate file count
     if (state.files.length + files.length > 20) {
         showToast('Maximum 20 files allowed', 'error');
@@ -130,15 +134,18 @@ async function handleFiles(fileList) {
 
     // Process each file
     for (const file of files) {
+        console.log(`Checking file: ${file.name} (${formatSize(file.size)})`);
+        
         // Validate file type
         if (!isValidImageType(file)) {
             showToast(`${file.name}: Invalid file type. Only JPG, PNG, GIF, and WebP are supported.`, 'error');
             continue;
         }
 
-        // Validate file size
+        // Validate file size - CRITICAL: Vercel has 4.5MB limit
         if (file.size > 4 * 1024 * 1024) {
-            showToast(`${file.name}: File too large. Maximum size is 4MB on the web version. Use desktop app for larger files.`, 'error');
+            console.warn(`File too large: ${file.name} (${formatSize(file.size)})`);
+            showToast(`${file.name}: File too large (${formatSize(file.size)}). Maximum is 4MB due to hosting limits. Please resize first or use the desktop app.`, 'error');
             continue;
         }
 
@@ -211,15 +218,14 @@ function updateFilesUI() {
 
 /**
  * Upload files to server
- */
-async function uploadFiles() {
-    const formData = new FormData();
-    state.files.forEach(f => formData.append('images', f.file));
-
+ */ole.log(`Uploading ${state.files.length} files to server...`);
+    
     const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
     });
+
+    console.log(`Upload response: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
         // Try to parse JSON error, fallback to text if it fails
@@ -227,6 +233,12 @@ async function uploadFiles() {
         try {
             const error = await response.json();
             errorMessage = error.message || error.error || errorMessage;
+        } catch (e) {
+            // Response is not JSON (e.g., HTML error page)
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            if (response.status === 413) {
+                errorMessage = '⚠️ Files too large! Vercel has a 4.5MB total request limit. Try uploading fewer or smaller files (< 4MB each)
         } catch (e) {
             // Response is not JSON (e.g., HTML error page)
             const text = await response.text();
