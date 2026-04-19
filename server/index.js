@@ -43,8 +43,8 @@ if (!existsSync(compressedDir)) {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, "../public")));
@@ -96,6 +96,28 @@ setInterval(cleanupOldFiles, cleanupInterval);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Server Error:", err);
+  
+  // Handle multer errors
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        error: "File too large",
+        message: "Maximum file size is 50MB per file",
+      });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(413).json({
+        error: "Too many files",
+        message: "Maximum 20 files allowed per upload",
+      });
+    }
+    return res.status(400).json({
+      error: "Upload error",
+      message: err.message,
+    });
+  }
+  
+  // Handle other errors
   res.status(500).json({
     error: "Internal server error",
     message:
