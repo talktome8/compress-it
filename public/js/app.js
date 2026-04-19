@@ -3,9 +3,20 @@
  * Handles file uploads, compression, previews, and downloads
  */
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.1.0';
+const isRender = window.location.hostname.includes('onrender.com');
+const maxFileSize = isRender ? 50 : 4;
 console.log(`Compress-It initialized v${APP_VERSION}`);
-console.log('Max file size: 4MB (Vercel limit)');
+console.log(`Platform: ${isRender ? 'Render' : 'Vercel'}`);
+console.log(`Max file size: ${maxFileSize}MB`);
+
+// Update UI with correct limits
+document.addEventListener('DOMContentLoaded', () => {
+    const limitsText = document.getElementById('uploadLimits');
+    if (limitsText) {
+        limitsText.textContent = `Support for JPG, PNG, GIF, WebP • Max ${maxFileSize}MB per file • Up to 20 files`;
+    }
+});
 
 // =============================================================================
 // State Management
@@ -142,10 +153,17 @@ async function handleFiles(fileList) {
             continue;
         }
 
-        // Validate file size - CRITICAL: Vercel has 4.5MB limit
-        if (file.size > 4 * 1024 * 1024) {
+        // Validate file size - Check if on Render (50MB) or Vercel (4MB)
+        const isRender = window.location.hostname.includes('onrender.com');
+        const maxSize = isRender ? 50 * 1024 * 1024 : 4 * 1024 * 1024;
+        const maxSizeText = isRender ? '50MB' : '4MB';
+        
+        if (file.size > maxSize) {
             console.warn(`File too large: ${file.name} (${formatSize(file.size)})`);
-            showToast(`${file.name}: File too large (${formatSize(file.size)}). Maximum is 4MB due to hosting limits. Please resize first or use the desktop app.`, 'error');
+            const message = isRender 
+                ? `${file.name}: File too large (${formatSize(file.size)}). Maximum is 50MB.`
+                : `${file.name}: File too large (${formatSize(file.size)}). Maximum is 4MB on Vercel. Deploy to Render for 50MB support.`;
+            showToast(message, 'error');
             continue;
         }
 
