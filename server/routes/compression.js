@@ -23,6 +23,7 @@ const uploadsDir = isServerless
 const compressedDir = isServerless
   ? "/tmp/compressed"
   : path.join(__dirname, "../../compressed");
+const maxImageUploadMB = process.env.VERCEL === "1" ? 4 : 50;
 
 // Ensure directories exist
 const { existsSync, mkdirSync } = require("fs");
@@ -60,7 +61,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max file size
+    fileSize: maxImageUploadMB * 1024 * 1024,
     files: 20, // Max 20 files per request
   },
 });
@@ -290,7 +291,9 @@ router.delete("/cleanup", async (req, res) => {
 router.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
-      return res.status(400).json({ error: "File size exceeds 50MB limit" });
+      return res
+        .status(400)
+        .json({ error: `File size exceeds ${maxImageUploadMB}MB limit` });
     }
     if (error.code === "LIMIT_FILE_COUNT") {
       return res

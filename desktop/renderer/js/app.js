@@ -44,6 +44,26 @@ function formatSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, (char) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char];
+  });
+}
+
+function formatSavingsBadge(savingsPercent) {
+  const value = Number(savingsPercent);
+  if (!Number.isFinite(value)) return "0%";
+  if (value < 0) return `+${Math.abs(value).toFixed(1)}%`;
+  return `-${value.toFixed(1)}%`;
+}
+
 function showToast(message, type = "info") {
   const container = document.getElementById("toastContainer");
   const toast = document.createElement("div");
@@ -97,7 +117,7 @@ function renderImageFileList() {
     .map(
       (f, i) => `
     <div class="file-item">
-      <span class="name">${f.name}</span>
+      <span class="name">${escapeHTML(f.name)}</span>
       <span class="size">${formatSize(f.size)}</span>
       <button class="remove" onclick="removeImageFile(${i})" title="Remove">✕</button>
     </div>`,
@@ -163,11 +183,11 @@ function showImageResults() {
       const saved = (
         ((r.originalSize - r.compressedSize) / r.originalSize) *
         100
-      ).toFixed(0);
+      );
       return `
       <div class="result-item">
         <div class="info">
-          <div class="name">${r.outputName}</div>
+          <div class="name">${escapeHTML(r.outputName)}</div>
           <div class="sizes">
             <span>${formatSize(
               r.originalSize,
@@ -176,16 +196,16 @@ function showImageResults() {
       )}</span>
           </div>
         </div>
-        <span class="badge">-${saved}%</span>
+        <span class="badge">${formatSavingsBadge(saved)}</span>
         <button class="save-btn" onclick="saveImage(${i})">Save</button>
       </div>`;
     })
     .join("");
 
-  const totalSaved = (((totalOrig - totalComp) / totalOrig) * 100).toFixed(1);
+  const totalSaved = ((totalOrig - totalComp) / totalOrig) * 100;
   document.getElementById("imgOrigSize").textContent = formatSize(totalOrig);
   document.getElementById("imgCompSize").textContent = formatSize(totalComp);
-  document.getElementById("imgSaved").textContent = `-${totalSaved}%`;
+  document.getElementById("imgSaved").textContent = formatSavingsBadge(totalSaved);
 }
 
 async function saveImage(index) {
@@ -308,8 +328,8 @@ async function compressVideo() {
     const saved = (
       ((result.originalSize - result.compressedSize) / result.originalSize) *
       100
-    ).toFixed(1);
-    document.getElementById("vidSaved").textContent = `-${saved}%`;
+    );
+    document.getElementById("vidSaved").textContent = formatSavingsBadge(saved);
     showToast("Video compressed successfully!", "success");
   } else if (result.cancelled) {
     showToast("Compression cancelled", "warning");

@@ -17,6 +17,7 @@ const app = express();
 // Ensure /tmp directories exist (Vercel only allows writing to /tmp)
 const uploadsDir = "/tmp/uploads";
 const compressedDir = "/tmp/compressed";
+const maxImageUploadMB = process.env.VERCEL === "1" ? 4 : 50;
 
 if (!existsSync(uploadsDir)) {
   mkdirSync(uploadsDir, { recursive: true });
@@ -54,7 +55,7 @@ app.use((err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
         error: "File too large",
-        message: "Maximum file size is 50MB per file",
+        message: `Maximum file size is ${maxImageUploadMB}MB per file`,
       });
     }
     if (err.code === 'LIMIT_FILE_COUNT') {

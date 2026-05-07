@@ -15,6 +15,8 @@ const ffprobeStatic = require("ffprobe-static");
 ffmpeg.setFfmpegPath(ffmpegStatic);
 ffmpeg.setFfprobePath(ffprobeStatic.path);
 
+const iconPath = path.join(__dirname, "renderer", "assets", "icon.png");
+
 /**
  * Safely parse an FFmpeg frame rate string like "30/1" or "29.97".
  * Never uses eval().
@@ -38,7 +40,7 @@ function createWindow() {
     minWidth: 700,
     minHeight: 550,
     title: "Compress-It",
-    icon: path.join(__dirname, "renderer", "assets", "icon.png"),
+    ...(fs.existsSync(iconPath) ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

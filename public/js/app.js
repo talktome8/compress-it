@@ -13,6 +13,8 @@ const state = {
   isCompressing: false,
 };
 
+const MAX_IMAGE_UPLOAD_MB = 4;
+
 // =============================================================================
 // DOM Elements
 // =============================================================================
@@ -86,15 +88,28 @@ function formatSavingsBadge(savingsPercent) {
   return `-${value.toFixed(1)}%`;
 }
 
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, (char) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char];
+  });
+}
+
 /**
  * Show toast notification
  */
 function showToast(message, type = "info") {
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
-  toast.innerHTML = `
-        <span>${message}</span>
-    `;
+  const span = document.createElement("span");
+  span.textContent = message;
+  toast.appendChild(span);
   elements.toastContainer.appendChild(toast);
 
   setTimeout(() => {
@@ -131,8 +146,11 @@ function handleFiles(fileList) {
       showToast(`${file.name} is not a supported image type`, "error");
       return false;
     }
-    if (file.size > 50 * 1024 * 1024) {
-      showToast(`${file.name} exceeds 50MB limit`, "error");
+    if (file.size > MAX_IMAGE_UPLOAD_MB * 1024 * 1024) {
+      showToast(
+        `${file.name} exceeds the ${MAX_IMAGE_UPLOAD_MB}MB browser image limit`,
+        "error",
+      );
       return false;
     }
     return true;
@@ -198,10 +216,10 @@ function updateFilesUI() {
       (file, index) => `
         <div class="file-item">
             <div class="file-thumb">
-                <img src="${file.thumbnail}" alt="${file.name}">
+                <img src="${file.thumbnail}" alt="${escapeHTML(file.name)}">
             </div>
             <div class="file-info">
-                <div class="file-name">${file.name}</div>
+                <div class="file-name">${escapeHTML(file.name)}</div>
                 <div class="file-size">${formatFileSize(file.size)}</div>
             </div>
             <button class="file-remove" onclick="removeFile(${index})" title="Remove file">
@@ -361,9 +379,9 @@ function showResults(data) {
         return `
                 <div class="result-card">
                     <div class="result-info">
-                        <div class="result-name">${result.originalName}</div>
+                        <div class="result-name">${escapeHTML(result.originalName)}</div>
                         <div class="result-stats">
-                            <span style="color: var(--color-error)">Compression failed: ${result.error}</span>
+                            <span style="color: var(--color-error)">Compression failed: ${escapeHTML(result.error)}</span>
                         </div>
                     </div>
                 </div>
@@ -373,15 +391,15 @@ function showResults(data) {
       return `
             <div class="result-card">
                 <div class="result-preview" onclick="openPreview(${index})">
-                    <img src="/api/preview/${result.compressedFilename}" alt="${
-        result.originalName
-      }">
+                    <img src="/api/preview/${result.compressedFilename}" alt="${escapeHTML(
+        result.originalName,
+      )}">
                     <div class="result-preview-overlay">
                         <span>Click to compare</span>
                     </div>
                 </div>
                 <div class="result-info">
-                    <div class="result-name">${result.originalName}</div>
+                    <div class="result-name">${escapeHTML(result.originalName)}</div>
                     <div class="result-stats">
                         <span class="result-original">${formatFileSize(
                           result.originalSize,
@@ -545,7 +563,7 @@ function openPreview(index) {
   );
   elements.previewCompressedSize.textContent = `${formatFileSize(
     result.compressedSize,
-  )} (-${result.savingsPercent}%)`;
+  )} (${formatSavingsBadge(result.savingsPercent)})`;
 
   elements.previewModal.classList.add("active");
   document.body.style.overflow = "hidden";
