@@ -3,29 +3,14 @@
  * Handles file uploads, compression, previews, and downloads
  */
 
-const APP_VERSION = '2.1.0';
-const isRender = window.location.hostname.includes('onrender.com');
-const maxFileSize = isRender ? 50 : 4;
-console.log(`Compress-It initialized v${APP_VERSION}`);
-console.log(`Platform: ${isRender ? 'Render' : 'Vercel'}`);
-console.log(`Max file size: ${maxFileSize}MB`);
-
-// Update UI with correct limits
-document.addEventListener('DOMContentLoaded', () => {
-    const limitsText = document.getElementById('uploadLimits');
-    if (limitsText) {
-        limitsText.textContent = `Support for JPG, PNG, GIF, WebP • Max ${maxFileSize}MB per file • Up to 20 files`;
-    }
-});
-
 // =============================================================================
 // State Management
 // =============================================================================
 
 const state = {
-    files: [], // Uploaded files info
-    results: [], // Compression results
-    isCompressing: false,
+  files: [], // Uploaded files info
+  results: [], // Compression results
+  isCompressing: false,
 };
 
 // =============================================================================
@@ -33,46 +18,50 @@ const state = {
 // =============================================================================
 
 const elements = {
-    // Upload
-    uploadArea: document.getElementById('uploadArea'),
-    fileInput: document.getElementById('fileInput'),
+  // Upload
+  uploadArea: document.getElementById("uploadArea"),
+  fileInput: document.getElementById("fileInput"),
 
-    // Settings
-    settingsSection: document.getElementById('settingsSection'),
-    qualitySlider: document.getElementById('qualitySlider'),
-    qualityValue: document.getElementById('qualityValue'),
-    outputFormat: document.getElementById('outputFormat'),
-    resizeWidth: document.getElementById('resizeWidth'),
-    resizeHeight: document.getElementById('resizeHeight'),
-    compressBtn: document.getElementById('compressBtn'),
+  // Settings
+  settingsSection: document.getElementById("settingsSection"),
+  qualitySlider: document.getElementById("qualitySlider"),
+  qualityValue: document.getElementById("qualityValue"),
+  outputFormat: document.getElementById("outputFormat"),
+  resizeWidth: document.getElementById("resizeWidth"),
+  resizeHeight: document.getElementById("resizeHeight"),
+  compressBtn: document.getElementById("compressBtn"),
 
-    // Files
-    filesSection: document.getElementById('filesSection'),
-    filesList: document.getElementById('filesList'),
-    fileCount: document.getElementById('fileCount'),
-    clearFilesBtn: document.getElementById('clearFilesBtn'),
+  // Files
+  filesSection: document.getElementById("filesSection"),
+  filesList: document.getElementById("filesList"),
+  fileCount: document.getElementById("fileCount"),
+  clearFilesBtn: document.getElementById("clearFilesBtn"),
 
-    // Progress
-    progressSection: document.getElementById('progressSection'),
-    progressFill: document.getElementById('progressFill'),
-    progressLabel: document.getElementById('progressLabel'),
+  // Progress
+  progressSection: document.getElementById("progressSection"),
+  progressFill: document.getElementById("progressFill"),
+  progressCount: document.getElementById("progressCount"),
 
-    // Results
-    resultsSection: document.getElementById('resultsSection'),
-    resultsList: document.getElementById('resultsList'),
-    totalOriginalSize: document.getElementById('totalOriginalSize'),
-    totalCompressedSize: document.getElementById('totalCompressedSize'),
-    totalSaved: document.getElementById('totalSaved'),
-    downloadAllBtn: document.getElementById('downloadAllBtn'),
-    resetBtn: document.getElementById('resetBtn'),
+  // Results
+  resultsSection: document.getElementById("resultsSection"),
+  resultsGrid: document.getElementById("resultsGrid"),
+  totalOriginal: document.getElementById("totalOriginal"),
+  totalCompressed: document.getElementById("totalCompressed"),
+  totalSaved: document.getElementById("totalSaved"),
+  downloadAllBtn: document.getElementById("downloadAllBtn"),
+  resetBtn: document.getElementById("resetBtn"),
 
-    // Preview Modal
-    previewModal: document.getElementById('previewModal'),
-    closePreview: document.getElementById('closePreview'),
-    previewOriginal: document.getElementById('previewOriginal'),
-    previewCompressed: document.getElementById('previewCompressed'),
-    previewOriginalSize: document.getElementById('previewOriginalSize'),
-    previewCompressedSize: document.getElementById('previewCompressedSize'),
+  // Modal
+  previewModal: document.getElementById("previewModal"),
+  modalOverlay: document.getElementById("modalOverlay"),
+  modalClose: document.getElementById("modalClose"),
+  previewOriginal: document.getElementById("previewOriginal"),
+  previewCompressed: document.getElementById("previewCompressed"),
+  previewOriginalSize: document.getElementById("previewOriginalSize"),
+  previewCompressedSize: document.getElementById("previewCompressedSize"),
+
+  // Toast
+  toastContainer: document.getElementById("toastContainer"),
 };
 
 // =============================================================================
@@ -80,49 +69,53 @@ const elements = {
 // =============================================================================
 
 /**
- * Format bytes to human-readable size
+ * Format file size in human-readable format
  */
-function formatSize(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+function formatFileSize(bytes) {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
+function formatSavingsBadge(savingsPercent) {
+  const value = Number(savingsPercent);
+  if (!Number.isFinite(value)) return "0%";
+  if (value < 0) return `+${Math.abs(value).toFixed(1)}%`;
+  return `-${value.toFixed(1)}%`;
 }
 
 /**
  * Show toast notification
  */
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toastContainer');
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.add('fade-out');
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
+function showToast(message, type = "info") {
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+        <span>${message}</span>
+    `;
+  elements.toastContainer.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = "slideIn 0.3s ease reverse";
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 /**
  * Create a thumbnail URL from file
  */
 function createThumbnail(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.readAsDataURL(file);
-    });
+  return URL.createObjectURL(file);
 }
 
 /**
  * Validate file type
  */
 function isValidImageType(file) {
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    return validTypes.includes(file.type);
+  const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+  return validTypes.includes(file.type);
 }
 
 // =============================================================================
@@ -132,102 +125,95 @@ function isValidImageType(file) {
 /**
  * Handle file selection
  */
-async function handleFiles(fileList) {
-    const files = Array.from(fileList);
-    
-    console.log(`Processing ${files.length} files...`);
-    
-    // Validate file count
-    if (state.files.length + files.length > 20) {
-        showToast('Maximum 20 files allowed', 'error');
-        return;
+function handleFiles(fileList) {
+  const validFiles = Array.from(fileList).filter((file) => {
+    if (!isValidImageType(file)) {
+      showToast(`${file.name} is not a supported image type`, "error");
+      return false;
     }
-
-    // Process each file
-    for (const file of files) {
-        console.log(`Checking file: ${file.name} (${formatSize(file.size)})`);
-        
-        // Validate file type
-        if (!isValidImageType(file)) {
-            showToast(`${file.name}: Invalid file type. Only JPG, PNG, GIF, and WebP are supported.`, 'error');
-            continue;
-        }
-
-        // Validate file size - Check if on Render (50MB) or Vercel (4MB)
-        const isRender = window.location.hostname.includes('onrender.com');
-        const maxSize = isRender ? 50 * 1024 * 1024 : 4 * 1024 * 1024;
-        const maxSizeText = isRender ? '50MB' : '4MB';
-        
-        if (file.size > maxSize) {
-            console.warn(`File too large: ${file.name} (${formatSize(file.size)})`);
-            const message = isRender 
-                ? `${file.name}: File too large (${formatSize(file.size)}). Maximum is 50MB.`
-                : `${file.name}: File too large (${formatSize(file.size)}). Maximum is 4MB on Vercel. Deploy to Render for 50MB support.`;
-            showToast(message, 'error');
-            continue;
-        }
-
-        // Create thumbnail
-        const thumbnail = await createThumbnail(file);
-
-        // Add to state
-        state.files.push({
-            file,
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            thumbnail,
-        });
+    if (file.size > 50 * 1024 * 1024) {
+      showToast(`${file.name} exceeds 50MB limit`, "error");
+      return false;
     }
+    return true;
+  });
 
-    if (state.files.length > 0) {
-        updateFilesUI();
-        elements.filesSection.style.display = 'block';
-        elements.settingsSection.style.display = 'block';
-    }
+  if (validFiles.length === 0) return;
+
+  if (state.files.length + validFiles.length > 20) {
+    showToast("Maximum 20 files allowed", "warning");
+    return;
+  }
+
+  // Add files to state
+  validFiles.forEach((file) => {
+    state.files.push({
+      file,
+      thumbnail: createThumbnail(file),
+      name: file.name,
+      size: file.size,
+    });
+  });
+
+  updateFilesUI();
+  showToast(`${validFiles.length} file(s) added`, "success");
 }
 
 /**
  * Remove a file from the list
  */
 function removeFile(index) {
-    state.files.splice(index, 1);
-    if (state.files.length === 0) {
-        clearAllFiles();
-    } else {
-        updateFilesUI();
-    }
+  URL.revokeObjectURL(state.files[index].thumbnail);
+  state.files.splice(index, 1);
+  updateFilesUI();
 }
 
 /**
  * Clear all files
  */
 function clearAllFiles() {
-    state.files = [];
-    state.results = [];
-    elements.filesSection.style.display = 'none';
-    elements.settingsSection.style.display = 'none';
-    elements.resultsSection.style.display = 'none';
-    elements.progressSection.style.display = 'none';
-    updateFilesUI();
+  state.files.forEach((f) => URL.revokeObjectURL(f.thumbnail));
+  state.files = [];
+  state.results = [];
+  updateFilesUI();
+  elements.resultsSection.style.display = "none";
 }
 
 /**
  * Update the files list UI
  */
 function updateFilesUI() {
-    elements.fileCount.textContent = state.files.length;
-    
-    elements.filesList.innerHTML = state.files.map((f, index) => `
+  if (state.files.length === 0) {
+    elements.filesSection.style.display = "none";
+    elements.settingsSection.style.display = "none";
+    return;
+  }
+
+  elements.filesSection.style.display = "block";
+  elements.settingsSection.style.display = "block";
+  elements.fileCount.textContent = state.files.length;
+
+  elements.filesList.innerHTML = state.files
+    .map(
+      (file, index) => `
         <div class="file-item">
-            <img src="${f.thumbnail}" alt="${f.name}" class="file-thumbnail">
-            <div class="file-info">
-                <div class="file-name">${f.name}</div>
-                <div class="file-size">${formatSize(f.size)}</div>
+            <div class="file-thumb">
+                <img src="${file.thumbnail}" alt="${file.name}">
             </div>
-            <button class="btn-remove" onclick="removeFile(${index})" title="Remove">✕</button>
+            <div class="file-info">
+                <div class="file-name">${file.name}</div>
+                <div class="file-size">${formatFileSize(file.size)}</div>
+            </div>
+            <button class="file-remove" onclick="removeFile(${index})" title="Remove file">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
         </div>
-    `).join('');
+    `,
+    )
+    .join("");
 }
 
 // =============================================================================
@@ -236,139 +222,111 @@ function updateFilesUI() {
 
 /**
  * Upload files to server
- */ole.log(`Uploading ${state.files.length} files to server...`);
-    
-    const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-    });
+ */
+async function uploadFiles() {
+  const formData = new FormData();
+  state.files.forEach((f) => formData.append("images", f.file));
 
-    console.log(`Upload response: ${response.status} ${response.statusText}`);
+  const response = await fetch("/api/upload", {
+    method: "POST",
+    body: formData,
+  });
 
-    if (!response.ok) {
-        // Try to parse JSON error, fallback to text if it fails
-        let errorMessage = 'Upload failed';
-        try {
-            const error = await response.json();
-            errorMessage = error.message || error.error || errorMessage;
-        } catch (e) {
-            // Response is not JSON (e.g., HTML error page)
-            const text = await response.text();
-            console.error('Non-JSON response:', text.substring(0, 200));
-            if (response.status === 413) {
-                errorMessage = '⚠️ Files too large! Vercel has a 4.5MB total request limit. Try uploading fewer or smaller files (< 4MB each)
-        } catch (e) {
-            // Response is not JSON (e.g., HTML error page)
-            const text = await response.text();
-            if (response.status === 413) {
-                errorMessage = 'Files too large. Maximum total size is 50MB per file. Please reduce file sizes or upload fewer files.';
-            } else {
-                errorMessage = `Upload failed (${response.status}): ${text.substring(0, 100)}`;
-            }
-        }
-        throw new Error(errorMessage);
-    }
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Upload failed");
+  }
 
-    return response.json();
+  return response.json();
 }
 
 /**
  * Compress uploaded files
  */
 async function compressFiles(uploadedFiles) {
-    const settings = {
-        quality: parseInt(elements.qualitySlider.value),
-        outputFormat: elements.outputFormat.value,
-        resizeWidth: elements.resizeWidth.value || null,
-        resizeHeight: elements.resizeHeight.value || null,
-    };
+  const settings = {
+    quality: parseInt(elements.qualitySlider.value),
+    outputFormat: elements.outputFormat.value,
+    resizeWidth: elements.resizeWidth.value || null,
+    resizeHeight: elements.resizeHeight.value || null,
+  };
 
-    const response = await fetch('/api/compress', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            files: uploadedFiles,
-            settings,
-        }),
-    });
+  const response = await fetch("/api/compress", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      files: uploadedFiles,
+      settings,
+    }),
+  });
 
-    if (!response.ok) {
-        // Try to parse JSON error, fallback to text if it fails
-        let errorMessage = 'Compression failed';
-        try {
-            const error = await response.json();
-            errorMessage = error.message || error.error || errorMessage;
-        } catch (e) {
-            // Response is not JSON
-            const text = await response.text();
-            errorMessage = `Compression failed (${response.status}): ${text.substring(0, 100)}`;
-        }
-        throw new Error(errorMessage);
-    }
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Compression failed");
+  }
 
-    return response.json();
+  return response.json();
 }
 
 /**
  * Handle compress button click
  */
 async function handleCompress() {
-    if (state.files.length === 0 || state.isCompressing) return;
+  if (state.files.length === 0 || state.isCompressing) return;
 
-    state.isCompressing = true;
-    elements.compressBtn.disabled = true;
-    elements.progressSection.style.display = 'block';
-    elements.resultsSection.style.display = 'none';
+  state.isCompressing = true;
+  elements.compressBtn.disabled = true;
+  elements.progressSection.style.display = "block";
+  elements.resultsSection.style.display = "none";
 
-    try {
-        // Update progress - uploading
-        updateProgress(0, state.files.length, 'Uploading images...');
+  try {
+    // Update progress - uploading
+    updateProgress(0, state.files.length, "Uploading images...");
 
-        // Upload files
-        const uploadResult = await uploadFiles();
+    // Upload files
+    const uploadResult = await uploadFiles();
 
-        // Update progress - compressing
-        updateProgress(50, 100, 'Compressing images...');
+    // Update progress - compressing
+    updateProgress(50, 100, "Compressing images...");
 
-        // Compress files
-        const compressionResult = await compressFiles(uploadResult.files);
+    // Compress files
+    const compressionResult = await compressFiles(uploadResult.files);
 
-        // Update progress - complete
-        updateProgress(100, 100, 'Complete!');
+    // Update progress - complete
+    updateProgress(100, 100, "Complete!");
 
-        // Store results
-        state.results = compressionResult.results.map((result, index) => ({
-            ...result,
-            originalThumbnail: state.files[index].thumbnail,
-        }));
+    // Store results
+    state.results = compressionResult.results.map((result, index) => ({
+      ...result,
+      originalThumbnail: state.files[index].thumbnail,
+    }));
 
-        // Show results
-        setTimeout(() => {
-            elements.progressSection.style.display = 'none';
-            showResults(compressionResult);
-        }, 500);
+    // Show results
+    setTimeout(() => {
+      elements.progressSection.style.display = "none";
+      showResults(compressionResult);
+    }, 500);
 
-        showToast('Images compressed successfully!', 'success');
-
-    } catch (error) {
-        console.error('Compression error:', error);
-        elements.progressSection.style.display = 'none';
-        showToast(error.message, 'error');
-    } finally {
-        state.isCompressing = false;
-        elements.compressBtn.disabled = false;
-    }
+    showToast("Compression complete!", "success");
+  } catch (error) {
+    console.error("Compression error:", error);
+    showToast(error.message || "Compression failed", "error");
+    elements.progressSection.style.display = "none";
+  } finally {
+    state.isCompressing = false;
+    elements.compressBtn.disabled = false;
+  }
 }
 
 /**
  * Update progress bar
  */
 function updateProgress(current, total, label) {
-    const percent = Math.round((current / total) * 100);
-    elements.progressFill.style.width = percent + '%';
-    elements.progressLabel.textContent = label;
+  const percent = Math.round((current / total) * 100);
+  elements.progressFill.style.width = `${percent}%`;
+  elements.progressCount.textContent = label || `${current}/${total}`;
 }
 
 // =============================================================================
@@ -379,41 +337,92 @@ function updateProgress(current, total, label) {
  * Show compression results
  */
 function showResults(data) {
-    elements.resultsSection.style.display = 'block';
+  elements.resultsSection.style.display = "block";
 
-    // Calculate totals
-    const totalOriginal = data.totalOriginalSize;
-    const totalCompressed = data.totalCompressedSize;
-    const savedPercent = ((totalOriginal - totalCompressed) / totalOriginal * 100).toFixed(1);
+  // Update summary stats
+  elements.totalOriginal.textContent = formatFileSize(data.totalOriginalSize);
+  elements.totalCompressed.textContent = formatFileSize(
+    data.totalCompressedSize,
+  );
 
-    elements.totalOriginalSize.textContent = formatSize(totalOriginal);
-    elements.totalCompressedSize.textContent = formatSize(totalCompressed);
-    elements.totalSaved.textContent = savedPercent + '%';
+  const savedPercent =
+    ((data.totalOriginalSize - data.totalCompressedSize) /
+      data.totalOriginalSize) *
+    100;
+  elements.totalSaved.textContent =
+    savedPercent < 0
+      ? `${Math.abs(savedPercent).toFixed(1)}% larger`
+      : `${savedPercent.toFixed(1)}%`;
 
-    // Display individual results
-    elements.resultsList.innerHTML = state.results.map((result, index) => {
-        const saved = ((result.originalSize - result.compressedSize) / result.originalSize * 100).toFixed(1);
-        
+  // Render result cards
+  elements.resultsGrid.innerHTML = state.results
+    .map((result, index) => {
+      if (!result.success) {
         return `
-            <div class="result-item">
-                <img src="${result.originalThumbnail}" alt="${result.originalName}" class="result-thumbnail">
-                <div class="result-info">
-                    <div class="result-name">${result.originalName}</div>
-                    <div class="result-sizes">
-                        ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}
-                        <span class="badge-success">-${saved}%</span>
+                <div class="result-card">
+                    <div class="result-info">
+                        <div class="result-name">${result.originalName}</div>
+                        <div class="result-stats">
+                            <span style="color: var(--color-error)">Compression failed: ${result.error}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="result-actions">
-                    <button class="btn-icon" onclick="openPreview(${index})" title="Preview">👁️</button>
-                    <button class="btn-primary btn-small" onclick="downloadSingle(${index})">Download</button>
+            `;
+      }
+
+      return `
+            <div class="result-card">
+                <div class="result-preview" onclick="openPreview(${index})">
+                    <img src="/api/preview/${result.compressedFilename}" alt="${
+        result.originalName
+      }">
+                    <div class="result-preview-overlay">
+                        <span>Click to compare</span>
+                    </div>
+                </div>
+                <div class="result-info">
+                    <div class="result-name">${result.originalName}</div>
+                    <div class="result-stats">
+                        <span class="result-original">${formatFileSize(
+                          result.originalSize,
+                        )}</span>
+                        <span class="result-compressed">${formatFileSize(
+                          result.compressedSize,
+                        )}</span>
+                        <span class="result-savings ${
+                          result.savingsPercent < 0
+                            ? "result-savings-negative"
+                            : ""
+                        }">${formatSavingsBadge(result.savingsPercent)}</span>
+                    </div>
+                    <div class="result-actions">
+                        <button class="btn btn-success" onclick="downloadSingle(${index})">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7,10 12,15 17,10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download
+                        </button>
+                        <button class="btn btn-secondary" onclick="openPreview(${index})">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            Preview
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
-    }).join('');
+    })
+    .join("");
 
-    // Scroll to results
-    elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
+  // Scroll to results
+  elements.resultsSection.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
 }
 
 // =============================================================================
@@ -424,88 +433,98 @@ function showResults(data) {
  * Download a single compressed image
  */
 function downloadSingle(index) {
-    const result = state.results[index];
-    if (!result || !result.success) return;
+  const result = state.results[index];
+  if (!result || !result.success) return;
 
-    const link = document.createElement('a');
-    // Use original filename with new extension (if format changed)
-    const originalBaseName = result.originalName.replace(/\.[^.]+$/, '');
-    const downloadName = originalBaseName + getExtension(result.outputFormat);
-    link.href = `/api/download/${result.compressedFilename}?name=${encodeURIComponent(downloadName)}`;
-    link.download = downloadName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const link = document.createElement("a");
+  // Use original filename with new extension (if format changed)
+  const originalBaseName = result.originalName.replace(/\.[^.]+$/, "");
+  const downloadName = originalBaseName + getExtension(result.outputFormat);
+  link.href = `/api/download/${
+    result.compressedFilename
+  }?name=${encodeURIComponent(downloadName)}`;
+  link.download = downloadName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 /**
  * Get file extension from format
  */
 function getExtension(format) {
-    const extensions = {
-        jpeg: '.jpg',
-        png: '.png',
-        gif: '.gif',
-        webp: '.webp',
-    };
-    return extensions[format] || '.jpg';
+  const extensions = {
+    jpeg: ".jpg",
+    png: ".png",
+    gif: ".gif",
+    webp: ".webp",
+  };
+  return extensions[format] || ".jpg";
 }
 
 /**
  * Download all compressed images as ZIP
  */
 async function downloadAll() {
-    const successfulResults = state.results.filter(r => r.success);
-    if (successfulResults.length === 0) {
-        showToast('No files to download', 'warning');
-        return;
-    }
+  const successfulResults = state.results.filter((r) => r.success);
+  if (successfulResults.length === 0) {
+    showToast("No files to download", "warning");
+    return;
+  }
 
-    elements.downloadAllBtn.disabled = true;
-    elements.downloadAllBtn.innerHTML = `
+  elements.downloadAllBtn.disabled = true;
+  elements.downloadAllBtn.innerHTML = `
         <div class="spinner"></div>
         Preparing ZIP...
     `;
 
-    try {
-        const files = successfulResults.map(result => ({
-            compressedFilename: result.compressedFilename,
-            // Use original filename with new extension (if format changed)
-            downloadName: result.originalName.replace(/\.[^.]+$/, '') + getExtension(result.outputFormat),
-        }));
+  try {
+    const files = successfulResults.map((result) => ({
+      compressedFilename: result.compressedFilename,
+      // Use original filename with new extension (if format changed)
+      downloadName:
+        result.originalName.replace(/\.[^.]+$/, "") +
+        getExtension(result.outputFormat),
+    }));
 
-        const response = await fetch('/api/download-zip', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ files }),
-        });
+    const response = await fetch("/api/download-zip", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ files }),
+    });
 
-        if (!response.ok) {
-            throw new Error('Failed to create ZIP');
-        }
-
-        // Download the zip file
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `compressed-images-${Date.now()}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        showToast('ZIP download started', 'success');
-
-    } catch (error) {
-        console.error('Download error:', error);
-        showToast('Failed to download ZIP', 'error');
-    } finally {
-        elements.downloadAllBtn.disabled = false;
-        elements.downloadAllBtn.innerHTML = '📦 Download All (ZIP)';
+    if (!response.ok) {
+      throw new Error("Failed to create ZIP");
     }
+
+    // Download the zip file
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `compressed-images-${Date.now()}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast("ZIP downloaded successfully!", "success");
+  } catch (error) {
+    console.error("Download error:", error);
+    showToast("Failed to create ZIP", "error");
+  } finally {
+    elements.downloadAllBtn.disabled = false;
+    elements.downloadAllBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7,10 12,15 17,10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download All (ZIP)
+        `;
+  }
 }
 
 // =============================================================================
@@ -516,21 +535,28 @@ async function downloadAll() {
  * Open preview modal
  */
 function openPreview(index) {
-    const result = state.results[index];
-    if (!result) return;
+  const result = state.results[index];
+  if (!result || !result.success) return;
 
-    elements.previewOriginal.src = result.originalThumbnail;
-    elements.previewCompressed.src = `/compressed/${result.compressedFilename}`;
-    elements.previewOriginalSize.textContent = `Original: ${formatSize(result.originalSize)}`;
-    elements.previewCompressedSize.textContent = `Compressed: ${formatSize(result.compressedSize)}`;
-    elements.previewModal.style.display = 'flex';
+  elements.previewOriginal.src = result.originalThumbnail;
+  elements.previewCompressed.src = `/api/preview/${result.compressedFilename}`;
+  elements.previewOriginalSize.textContent = formatFileSize(
+    result.originalSize,
+  );
+  elements.previewCompressedSize.textContent = `${formatFileSize(
+    result.compressedSize,
+  )} (-${result.savingsPercent}%)`;
+
+  elements.previewModal.classList.add("active");
+  document.body.style.overflow = "hidden";
 }
 
 /**
  * Close preview modal
  */
 function closePreview() {
-    elements.previewModal.style.display = 'none';
+  elements.previewModal.classList.remove("active");
+  document.body.style.overflow = "";
 }
 
 // =============================================================================
@@ -541,8 +567,28 @@ function closePreview() {
  * Reset application state
  */
 function reset() {
-    clearAllFiles();
-    showToast('Ready for new batch', 'info');
+  // Clean up server files
+  const fileIds = state.results.filter((r) => r.success).map((r) => r.id);
+
+  if (fileIds.length > 0) {
+    fetch("/api/cleanup", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fileIds }),
+    }).catch(console.error);
+  }
+
+  // Reset state
+  clearAllFiles();
+
+  // Reset UI
+  elements.resultsSection.style.display = "none";
+  elements.progressSection.style.display = "none";
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // =============================================================================
@@ -550,58 +596,63 @@ function reset() {
 // =============================================================================
 
 // Drag and drop
-elements.uploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    elements.uploadArea.classList.add('dragover');
+elements.uploadArea.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  elements.uploadArea.classList.add("dragover");
 });
 
-elements.uploadArea.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    elements.uploadArea.classList.remove('dragover');
+elements.uploadArea.addEventListener("dragleave", (e) => {
+  e.preventDefault();
+  elements.uploadArea.classList.remove("dragover");
 });
 
-elements.uploadArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    elements.uploadArea.classList.remove('dragover');
-    handleFiles(e.dataTransfer.files);
+elements.uploadArea.addEventListener("drop", (e) => {
+  e.preventDefault();
+  elements.uploadArea.classList.remove("dragover");
+  handleFiles(e.dataTransfer.files);
 });
 
 // Click to upload
-elements.uploadArea.addEventListener('click', () => {
-    elements.fileInput.click();
+elements.uploadArea.addEventListener("click", () => {
+  elements.fileInput.click();
 });
 
-elements.fileInput.addEventListener('change', (e) => {
-    handleFiles(e.target.files);
-    e.target.value = ''; // Clear input to allow re-selecting same files
+elements.fileInput.addEventListener("change", (e) => {
+  handleFiles(e.target.files);
+  e.target.value = ""; // Reset input
 });
 
 // Quality slider
-elements.qualitySlider.addEventListener('input', (e) => {
-    elements.qualityValue.textContent = e.target.value;
+elements.qualitySlider.addEventListener("input", (e) => {
+  elements.qualityValue.textContent = e.target.value;
 });
 
-// Compress button
-elements.compressBtn.addEventListener('click', handleCompress);
+// Buttons
+elements.compressBtn.addEventListener("click", handleCompress);
+elements.clearFilesBtn.addEventListener("click", clearAllFiles);
+elements.downloadAllBtn.addEventListener("click", downloadAll);
+elements.resetBtn.addEventListener("click", reset);
 
-// Clear files button
-elements.clearFilesBtn.addEventListener('click', clearAllFiles);
+// Modal
+elements.modalClose.addEventListener("click", closePreview);
+elements.modalOverlay.addEventListener("click", closePreview);
 
-// Download all button
-elements.downloadAllBtn.addEventListener('click', downloadAll);
-
-// Reset button
-elements.resetBtn.addEventListener('click', reset);
-
-// Preview modal close
-elements.closePreview.addEventListener('click', closePreview);
-elements.previewModal.addEventListener('click', (e) => {
-    if (e.target === elements.previewModal) {
-        closePreview();
-    }
+// Keyboard
+document.addEventListener("keydown", (e) => {
+  if (
+    e.key === "Escape" &&
+    elements.previewModal.classList.contains("active")
+  ) {
+    closePreview();
+  }
 });
 
-// Make functions globally accessible for inline onclick handlers
-window.removeFile = removeFile;
-window.downloadSingle = downloadSingle;
-window.openPreview = openPreview;
+// Prevent default drag behavior on window
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
+
+// =============================================================================
+// Initialize
+// =============================================================================
+
+console.log("Compress-It initialized");
