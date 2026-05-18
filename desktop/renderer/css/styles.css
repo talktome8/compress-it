@@ -216,6 +216,18 @@ body {
   font-size: 0.7rem;
   color: var(--gray-400);
 }
+.size-estimate {
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: var(--radius);
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.size-estimate strong {
+  color: var(--gray-900);
+}
 
 /* Inputs */
 .select,

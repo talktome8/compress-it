@@ -64,6 +64,43 @@ function formatSavingsBadge(savingsPercent) {
   return `-${value.toFixed(1)}%`;
 }
 
+function getEstimatedImageSize(fileInfo) {
+  const quality = Math.max(
+    1,
+    Math.min(100, parseInt(document.getElementById("qualitySlider").value, 10) || 80),
+  );
+  const format = document.getElementById("outputFormat").value;
+  const q = quality / 100;
+  const factors = {
+    jpeg: 0.16 + q * 0.72,
+    webp: 0.12 + q * 0.62,
+    png: 0.36 + q * 0.68,
+    original: 0.22 + q * 0.74,
+  };
+  return Math.max(512, Math.round(fileInfo.size * (factors[format] || factors.original)));
+}
+
+function updateImageSizeEstimate() {
+  const estimate = document.getElementById("imageSizeEstimate");
+  if (!estimate) return;
+  if (state.imageFiles.length === 0) {
+    estimate.textContent = "Add images to estimate output size.";
+    return;
+  }
+
+  const originalTotal = state.imageFiles.reduce((sum, f) => sum + f.size, 0);
+  const estimatedTotal = state.imageFiles.reduce(
+    (sum, f) => sum + getEstimatedImageSize(f),
+    0,
+  );
+  const delta = ((originalTotal - estimatedTotal) / originalTotal) * 100;
+  const trend =
+    delta >= 0 ? `${delta.toFixed(0)}% smaller` : `${Math.abs(delta).toFixed(0)}% larger`;
+  estimate.innerHTML = `Estimated output: <strong>${formatSize(
+    estimatedTotal,
+  )}</strong> (${trend}). Exact size appears after compression.`;
+}
+
 function showToast(message, type = "info") {
   const container = document.getElementById("toastContainer");
   const toast = document.createElement("div");
@@ -93,6 +130,7 @@ function addImageFiles(files) {
   renderImageFileList();
   document.getElementById("imageSettings").style.display = "";
   document.getElementById("imageResults").style.display = "none";
+  updateImageSizeEstimate();
 }
 
 function removeImageFile(index) {
@@ -101,6 +139,7 @@ function removeImageFile(index) {
     document.getElementById("imageSettings").style.display = "none";
   }
   renderImageFileList();
+  updateImageSizeEstimate();
 }
 
 function clearImages() {
@@ -109,6 +148,7 @@ function clearImages() {
   document.getElementById("imageSettings").style.display = "none";
   document.getElementById("imageResults").style.display = "none";
   document.getElementById("imageProgress").style.display = "none";
+  updateImageSizeEstimate();
 }
 
 function renderImageFileList() {
@@ -372,8 +412,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const valDisplay = document.getElementById("qualityVal");
   slider.addEventListener(
     "input",
-    () => (valDisplay.textContent = slider.value),
+    () => {
+      valDisplay.textContent = slider.value;
+      updateImageSizeEstimate();
+    },
   );
+  document
+    .getElementById("outputFormat")
+    .addEventListener("change", updateImageSizeEstimate);
 
   // Custom video size toggle
   const targetSelect = document.getElementById("videoTargetSize");

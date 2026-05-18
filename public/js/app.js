@@ -27,8 +27,9 @@ const elements = {
   // Settings
   settingsSection: document.getElementById("settingsSection"),
   qualitySlider: document.getElementById("qualitySlider"),
-  qualityValue: document.getElementById("qualityValue"),
-  outputFormat: document.getElementById("outputFormat"),
+    qualityValue: document.getElementById("qualityValue"),
+    sizeEstimate: document.getElementById("sizeEstimate"),
+    outputFormat: document.getElementById("outputFormat"),
   resizeWidth: document.getElementById("resizeWidth"),
   resizeHeight: document.getElementById("resizeHeight"),
   compressBtn: document.getElementById("compressBtn"),
@@ -125,12 +126,78 @@ function createThumbnail(file) {
   return URL.createObjectURL(file);
 }
 
+function readImageDimensions(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 /**
  * Validate file type
  */
 function isValidImageType(file) {
   const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
   return validTypes.includes(file.type);
+}
+
+function getTargetFormat(fileType) {
+  const selected = elements.outputFormat.value;
+  if (selected !== "original") return selected;
+  if (fileType === "image/jpeg") return "jpeg";
+  if (fileType === "image/png") return "png";
+  if (fileType === "image/gif") return "gif";
+  if (fileType === "image/webp") return "webp";
+  return "jpeg";
+}
+
+function estimateCompressedSize(fileInfo) {
+  const quality = Math.max(1, Math.min(100, parseInt(elements.qualitySlider.value, 10) || 80));
+  const format = getTargetFormat(fileInfo.file.type);
+  const width = parseInt(elements.resizeWidth.value, 10);
+  const height = parseInt(elements.resizeHeight.value, 10);
+  let resizeRatio = 1;
+
+  if (fileInfo.width && fileInfo.height && (width || height)) {
+    const widthRatio = width ? width / fileInfo.width : 1;
+    const heightRatio = height ? height / fileInfo.height : 1;
+    resizeRatio = Math.min(1, widthRatio, heightRatio);
+  }
+
+  const pixelRatio = resizeRatio * resizeRatio;
+  const q = quality / 100;
+  const formatFactors = {
+    jpeg: 0.16 + q * 0.72,
+    webp: 0.12 + q * 0.62,
+    png: 0.36 + q * 0.68,
+    gif: 0.55 + q * 0.45,
+  };
+  return Math.max(512, Math.round(fileInfo.size * pixelRatio * (formatFactors[format] || 0.8)));
+}
+
+function updateSizeEstimate() {
+  if (!elements.sizeEstimate) return;
+  if (state.files.length === 0) {
+    elements.sizeEstimate.textContent = "Add images to estimate output size.";
+    return;
+  }
+
+  const originalTotal = state.files.reduce((sum, file) => sum + file.size, 0);
+  const estimateTotal = state.files.reduce(
+    (sum, file) => sum + estimateCompressedSize(file),
+    0,
+  );
+  const estimateDelta = ((originalTotal - estimateTotal) / originalTotal) * 100;
+  const trend =
+    estimateDelta >= 0
+      ? `${estimateDelta.toFixed(0)}% smaller`
+      : `${Math.abs(estimateDelta).toFixed(0)}% larger`;
+
+  elements.sizeEstimate.innerHTML = `Estimated output: <strong>${formatFileSize(
+    estimateTotal,
+  )}</strong> (${trend}). Exact size appears after compression.`;
 }
 
 // =============================================================================
@@ -165,15 +232,26 @@ function handleFiles(fileList) {
 
   // Add files to state
   validFiles.forEach((file) => {
-    state.files.push({
+    const thumbnail = createThumbnail(file);
+    const fileInfo = {
       file,
-      thumbnail: createThumbnail(file),
+      thumbnail,
       name: file.name,
       size: file.size,
+      width: null,
+      height: null,
+    };
+    state.files.push(fileInfo);
+    readImageDimensions(thumbnail).then((dimensions) => {
+      if (!dimensions) return;
+      fileInfo.width = dimensions.width;
+      fileInfo.height = dimensions.height;
+      updateSizeEstimate();
     });
   });
 
   updateFilesUI();
+  updateSizeEstimate();
   showToast(`${validFiles.length} file(s) added`, "success");
 }
 
@@ -184,6 +262,7 @@ function removeFile(index) {
   URL.revokeObjectURL(state.files[index].thumbnail);
   state.files.splice(index, 1);
   updateFilesUI();
+  updateSizeEstimate();
 }
 
 /**
@@ -195,6 +274,7 @@ function clearAllFiles() {
   state.results = [];
   updateFilesUI();
   elements.resultsSection.style.display = "none";
+  updateSizeEstimate();
 }
 
 /**
@@ -643,7 +723,12 @@ elements.fileInput.addEventListener("change", (e) => {
 // Quality slider
 elements.qualitySlider.addEventListener("input", (e) => {
   elements.qualityValue.textContent = e.target.value;
+  updateSizeEstimate();
 });
+
+elements.outputFormat.addEventListener("change", updateSizeEstimate);
+elements.resizeWidth.addEventListener("input", updateSizeEstimate);
+elements.resizeHeight.addEventListener("input", updateSizeEstimate);
 
 // Buttons
 elements.compressBtn.addEventListener("click", handleCompress);
