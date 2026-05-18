@@ -142,6 +142,7 @@ async function compressImage(file, settings) {
     resizeWidth,
     resizeHeight,
     maintainAspectRatio,
+    targetSizeKB,
   } = settings;
 
   const inputPath = file.path;
@@ -155,54 +156,85 @@ async function compressImage(file, settings) {
     const originalStats = await fs.stat(inputPath);
     const originalSize = originalStats.size;
 
-    // Initialize Sharp pipeline
-    let pipeline = sharp(inputPath);
-
     // Get image metadata
-    const metadata = await pipeline.metadata();
+    const metadata = await sharp(inputPath).metadata();
 
-    // Apply resize if specified
-    if (resizeWidth || resizeHeight) {
-      const resizeOptions = {
-        fit: maintainAspectRatio ? "inside" : "fill",
-        withoutEnlargement: true,
-      };
+    const renderAtQuality = async (renderQuality) => {
+      let pipeline = sharp(inputPath);
 
-      if (resizeWidth) resizeOptions.width = resizeWidth;
-      if (resizeHeight) resizeOptions.height = resizeHeight;
+      if (resizeWidth || resizeHeight) {
+        const resizeOptions = {
+          fit: maintainAspectRatio ? "inside" : "fill",
+          withoutEnlargement: true,
+        };
 
-      pipeline = pipeline.resize(resizeOptions);
+        if (resizeWidth) resizeOptions.width = resizeWidth;
+        if (resizeHeight) resizeOptions.height = resizeHeight;
+
+        pipeline = pipeline.resize(resizeOptions);
+      }
+
+      const compressionOptions = getCompressionOptions(format, renderQuality);
+
+      switch (format) {
+        case "jpeg":
+          pipeline = pipeline.jpeg(compressionOptions);
+          break;
+        case "png":
+          pipeline = pipeline.png(compressionOptions);
+          break;
+        case "webp":
+          pipeline = pipeline.webp(compressionOptions);
+          break;
+        case "gif":
+          pipeline = pipeline.gif(compressionOptions);
+          break;
+      }
+
+      return pipeline
+        .withMetadata({ orientation: undefined })
+        .toBuffer();
+    };
+
+    const targetBytes = targetSizeKB ? Math.max(1, parseInt(targetSizeKB, 10)) * 1024 : null;
+    let outputBuffer;
+    let actualQuality = quality;
+    let targetMatched = false;
+
+    if (targetBytes) {
+      let low = 1;
+      let high = 100;
+      let bestUnder = null;
+      let smallest = null;
+
+      for (let attempt = 0; attempt < 7; attempt++) {
+        const mid = Math.floor((low + high) / 2);
+        const candidate = await renderAtQuality(mid);
+        const candidateResult = { buffer: candidate, quality: mid, size: candidate.length };
+
+        if (!smallest || candidate.length < smallest.size) {
+          smallest = candidateResult;
+        }
+
+        if (candidate.length <= targetBytes) {
+          bestUnder = candidateResult;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      const selected = bestUnder || smallest;
+      outputBuffer = selected.buffer;
+      actualQuality = selected.quality;
+      targetMatched = Boolean(bestUnder);
+    } else {
+      outputBuffer = await renderAtQuality(quality);
     }
 
-    // Apply format-specific compression
-    const compressionOptions = getCompressionOptions(format, quality);
+    await fs.writeFile(outputPath, outputBuffer);
 
-    switch (format) {
-      case "jpeg":
-        pipeline = pipeline.jpeg(compressionOptions);
-        break;
-      case "png":
-        pipeline = pipeline.png(compressionOptions);
-        break;
-      case "webp":
-        pipeline = pipeline.webp(compressionOptions);
-        break;
-      case "gif":
-        pipeline = pipeline.gif(compressionOptions);
-        break;
-    }
-
-    // Remove metadata to reduce file size (except for color profile)
-    pipeline = pipeline.withMetadata({
-      orientation: undefined, // Remove orientation, we've already applied it
-    });
-
-    // Write output file
-    await pipeline.toFile(outputPath);
-
-    // Get compressed file stats
-    const compressedStats = await fs.stat(outputPath);
-    const compressedSize = compressedStats.size;
+    const compressedSize = outputBuffer.length;
     const compressedData = await fs.readFile(outputPath, "base64");
 
     // Calculate savings
@@ -221,6 +253,9 @@ async function compressImage(file, settings) {
       compressedData,
       mimeType: `image/${format === "jpeg" ? "jpeg" : format}`,
       outputFormat: format,
+      actualQuality,
+      targetSizeBytes: targetBytes,
+      targetMatched,
       dimensions: {
         width: metadata.width,
         height: metadata.height,

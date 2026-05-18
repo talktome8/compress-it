@@ -118,6 +118,7 @@ router.post("/compress", async (req, res) => {
         ? parseInt(settings.resizeHeight)
         : null,
       maintainAspectRatio: settings?.maintainAspectRatio !== false,
+      targetSizeKB: settings?.targetSizeKB ? parseInt(settings.targetSizeKB) : null,
     };
 
     const results = await Promise.all(

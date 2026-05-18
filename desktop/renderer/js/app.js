@@ -89,6 +89,20 @@ function updateImageSizeEstimate() {
   }
 
   const originalTotal = state.imageFiles.reduce((sum, f) => sum + f.size, 0);
+  const targetSizeKB = parseInt(document.getElementById("targetSizeKB").value, 10);
+  if (targetSizeKB > 0) {
+    const targetTotal = targetSizeKB * 1024 * state.imageFiles.length;
+    const delta = ((originalTotal - targetTotal) / originalTotal) * 100;
+    const trend =
+      delta >= 0 ? `${delta.toFixed(0)}% smaller` : `${Math.abs(delta).toFixed(0)}% larger`;
+    estimate.innerHTML = `Target output: <strong>${formatSize(
+      targetTotal,
+    )}</strong> total (${formatSize(
+      targetSizeKB * 1024,
+    )} per image). Compression will run real quality search to get as close as possible.`;
+    return;
+  }
+
   const estimatedTotal = state.imageFiles.reduce(
     (sum, f) => sum + getEstimatedImageSize(f),
     0,
@@ -190,6 +204,7 @@ async function compressAllImages() {
     const result = await window.compressIt.compressImage(f.path, {
       quality,
       outputFormat,
+      targetSizeKB: document.getElementById("targetSizeKB").value || null,
     });
 
     if (result.success) {
@@ -420,6 +435,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("outputFormat")
     .addEventListener("change", updateImageSizeEstimate);
+  document
+    .getElementById("targetSizeKB")
+    .addEventListener("input", updateImageSizeEstimate);
 
   // Custom video size toggle
   const targetSelect = document.getElementById("videoTargetSize");

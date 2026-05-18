@@ -85,17 +85,7 @@ ipcMain.handle("compress-image", async (event, { filePath, options }) => {
     const fileName = path.basename(filePath);
     const ext = path.extname(filePath).toLowerCase();
 
-    let pipeline = sharp(inputBuffer);
-    const metadata = await pipeline.metadata();
-
-    // Resize if requested
-    if (options.resizeWidth || options.resizeHeight) {
-      pipeline = pipeline.resize(
-        options.resizeWidth || null,
-        options.resizeHeight || null,
-        { fit: "inside", withoutEnlargement: true },
-      );
-    }
+    const metadata = await sharp(inputBuffer).metadata();
 
     // Determine output format
     let outputFormat = options.outputFormat || "original";
@@ -110,24 +100,77 @@ ipcMain.handle("compress-image", async (event, { filePath, options }) => {
       outputFormat = formatMap[ext] || "jpeg";
     }
 
-    // Apply compression
-    const quality = options.quality || 80;
-    switch (outputFormat) {
-      case "jpeg":
-        pipeline = pipeline.jpeg({ quality, mozjpeg: true });
-        break;
-      case "png":
-        pipeline = pipeline.png({ quality, compressionLevel: 9 });
-        break;
-      case "webp":
-        pipeline = pipeline.webp({ quality });
-        break;
-      case "gif":
-        pipeline = pipeline.gif();
-        break;
-    }
+    const renderAtQuality = async (quality) => {
+      let pipeline = sharp(inputBuffer);
 
-    const outputBuffer = await pipeline.toBuffer();
+      if (options.resizeWidth || options.resizeHeight) {
+        pipeline = pipeline.resize(
+          options.resizeWidth || null,
+          options.resizeHeight || null,
+          { fit: "inside", withoutEnlargement: true },
+        );
+      }
+
+      switch (outputFormat) {
+        case "jpeg":
+          pipeline = pipeline.jpeg({ quality, mozjpeg: true });
+          break;
+        case "png":
+          pipeline = pipeline.png({
+            quality,
+            compressionLevel: 9,
+            palette: quality < 100,
+            colors: Math.max(16, Math.floor(256 * (quality / 100))),
+          });
+          break;
+        case "webp":
+          pipeline = pipeline.webp({ quality });
+          break;
+        case "gif":
+          pipeline = pipeline.gif();
+          break;
+      }
+
+      return pipeline.toBuffer();
+    };
+
+    const targetBytes = options.targetSizeKB
+      ? Math.max(1, parseInt(options.targetSizeKB, 10)) * 1024
+      : null;
+    let actualQuality = options.quality || 80;
+    let targetMatched = false;
+    let outputBuffer;
+
+    if (targetBytes) {
+      let low = 1;
+      let high = 100;
+      let bestUnder = null;
+      let smallest = null;
+
+      for (let attempt = 0; attempt < 7; attempt++) {
+        const mid = Math.floor((low + high) / 2);
+        const candidate = await renderAtQuality(mid);
+        const candidateResult = { buffer: candidate, quality: mid, size: candidate.length };
+
+        if (!smallest || candidate.length < smallest.size) {
+          smallest = candidateResult;
+        }
+
+        if (candidate.length <= targetBytes) {
+          bestUnder = candidateResult;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      const selected = bestUnder || smallest;
+      outputBuffer = selected.buffer;
+      actualQuality = selected.quality;
+      targetMatched = Boolean(bestUnder);
+    } else {
+      outputBuffer = await renderAtQuality(actualQuality);
+    }
 
     // Determine output extension
     const extMap = { jpeg: ".jpg", png: ".png", webp: ".webp", gif: ".gif" };
@@ -141,6 +184,9 @@ ipcMain.handle("compress-image", async (event, { filePath, options }) => {
       originalSize: inputBuffer.length,
       compressedSize: outputBuffer.length,
       compressedData: outputBuffer.toString("base64"),
+      actualQuality,
+      targetSizeBytes: targetBytes,
+      targetMatched,
       width: metadata.width,
       height: metadata.height,
     };

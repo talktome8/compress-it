@@ -30,7 +30,8 @@ const elements = {
     qualityValue: document.getElementById("qualityValue"),
     sizeEstimate: document.getElementById("sizeEstimate"),
     outputFormat: document.getElementById("outputFormat"),
-  resizeWidth: document.getElementById("resizeWidth"),
+    targetSizeKB: document.getElementById("targetSizeKB"),
+    resizeWidth: document.getElementById("resizeWidth"),
   resizeHeight: document.getElementById("resizeHeight"),
   compressBtn: document.getElementById("compressBtn"),
 
@@ -207,6 +208,22 @@ function updateSizeEstimate() {
   }
 
   const originalTotal = state.files.reduce((sum, file) => sum + file.size, 0);
+  const targetSizeKB = parseInt(elements.targetSizeKB.value, 10);
+  if (targetSizeKB > 0) {
+    const targetTotal = targetSizeKB * 1024 * state.files.length;
+    const targetDelta = ((originalTotal - targetTotal) / originalTotal) * 100;
+    const trend =
+      targetDelta >= 0
+        ? `${targetDelta.toFixed(0)}% smaller`
+        : `${Math.abs(targetDelta).toFixed(0)}% larger`;
+    elements.sizeEstimate.innerHTML = `Target output: <strong>${formatFileSize(
+      targetTotal,
+    )}</strong> total (${formatFileSize(
+      targetSizeKB * 1024,
+    )} per image, ${trend}). Compression will run real quality search to get as close as possible.`;
+    return;
+  }
+
   const estimateTotal = state.files.reduce(
     (sum, file) => sum + estimateCompressedSize(file),
     0,
@@ -366,10 +383,11 @@ async function uploadFiles() {
 async function compressFiles(uploadedFiles) {
   const settings = {
     quality: parseInt(elements.qualitySlider.value),
-    outputFormat: elements.outputFormat.value,
-    resizeWidth: elements.resizeWidth.value || null,
-    resizeHeight: elements.resizeHeight.value || null,
-  };
+      outputFormat: elements.outputFormat.value,
+      resizeWidth: elements.resizeWidth.value || null,
+      resizeHeight: elements.resizeHeight.value || null,
+      targetSizeKB: elements.targetSizeKB.value || null,
+    };
 
   const response = await fetch("/api/compress", {
     method: "POST",
@@ -763,6 +781,7 @@ elements.qualitySlider.addEventListener("input", (e) => {
 });
 
 elements.outputFormat.addEventListener("change", updateSizeEstimate);
+elements.targetSizeKB.addEventListener("input", updateSizeEstimate);
 elements.resizeWidth.addEventListener("input", updateSizeEstimate);
 elements.resizeHeight.addEventListener("input", updateSizeEstimate);
 
