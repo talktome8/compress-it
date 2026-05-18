@@ -203,6 +203,7 @@ async function compressImage(file, settings) {
     // Get compressed file stats
     const compressedStats = await fs.stat(outputPath);
     const compressedSize = compressedStats.size;
+    const compressedData = await fs.readFile(outputPath, "base64");
 
     // Calculate savings
     const savedBytes = originalSize - compressedSize;
@@ -217,6 +218,8 @@ async function compressImage(file, settings) {
       savedBytes,
       savingsPercent: parseFloat(savingsPercent),
       compressedFilename: outputFilename,
+      compressedData,
+      mimeType: `image/${format === "jpeg" ? "jpeg" : format}`,
       outputFormat: format,
       dimensions: {
         width: metadata.width,

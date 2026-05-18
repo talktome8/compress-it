@@ -153,6 +153,28 @@ function getTargetFormat(fileType) {
   return "jpeg";
 }
 
+function base64ToBlob(base64, mimeType) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType || "application/octet-stream" });
+}
+
+function getCompressedObjectUrl(result) {
+  if (!result.compressedData) return null;
+  const blob = base64ToBlob(result.compressedData, result.mimeType);
+  return URL.createObjectURL(blob);
+}
+
+function getPreviewSource(result) {
+  if (result.compressedData) {
+    return `data:${result.mimeType || "image/jpeg"};base64,${result.compressedData}`;
+  }
+  return `/api/preview/${result.compressedFilename}`;
+}
+
 function estimateCompressedSize(fileInfo) {
   const quality = Math.max(1, Math.min(100, parseInt(elements.qualitySlider.value, 10) || 80));
   const format = getTargetFormat(fileInfo.file.type);
@@ -471,7 +493,7 @@ function showResults(data) {
       return `
             <div class="result-card">
                 <div class="result-preview" onclick="openPreview(${index})">
-                    <img src="/api/preview/${result.compressedFilename}" alt="${escapeHTML(
+                    <img src="${getPreviewSource(result)}" alt="${escapeHTML(
         result.originalName,
       )}">
                     <div class="result-preview-overlay">
@@ -538,13 +560,19 @@ function downloadSingle(index) {
   // Use original filename with new extension (if format changed)
   const originalBaseName = result.originalName.replace(/\.[^.]+$/, "");
   const downloadName = originalBaseName + getExtension(result.outputFormat);
-  link.href = `/api/download/${
-    result.compressedFilename
-  }?name=${encodeURIComponent(downloadName)}`;
+  const objectUrl = getCompressedObjectUrl(result);
+  link.href =
+    objectUrl ||
+    `/api/download/${result.compressedFilename}?name=${encodeURIComponent(
+      downloadName,
+    )}`;
   link.download = downloadName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  if (objectUrl) {
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }
 }
 
 /**
@@ -573,10 +601,18 @@ async function downloadAll() {
   elements.downloadAllBtn.disabled = true;
   elements.downloadAllBtn.innerHTML = `
         <div class="spinner"></div>
-        Preparing ZIP...
+        Preparing downloads...
     `;
 
   try {
+    if (successfulResults.every((result) => result.compressedData)) {
+      successfulResults.forEach((result) => {
+        downloadSingle(state.results.indexOf(result));
+      });
+      showToast("Downloads started", "success");
+      return;
+    }
+
     const files = successfulResults.map((result) => ({
       compressedFilename: result.compressedFilename,
       // Use original filename with new extension (if format changed)
@@ -608,10 +644,10 @@ async function downloadAll() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    showToast("ZIP downloaded successfully!", "success");
+    showToast("Download started", "success");
   } catch (error) {
     console.error("Download error:", error);
-    showToast("Failed to create ZIP", "error");
+    showToast("Failed to download files", "error");
   } finally {
     elements.downloadAllBtn.disabled = false;
     elements.downloadAllBtn.innerHTML = `
@@ -620,7 +656,7 @@ async function downloadAll() {
                 <polyline points="7,10 12,15 17,10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            Download All (ZIP)
+            Download All
         `;
   }
 }
@@ -637,7 +673,7 @@ function openPreview(index) {
   if (!result || !result.success) return;
 
   elements.previewOriginal.src = result.originalThumbnail;
-  elements.previewCompressed.src = `/api/preview/${result.compressedFilename}`;
+  elements.previewCompressed.src = getPreviewSource(result);
   elements.previewOriginalSize.textContent = formatFileSize(
     result.originalSize,
   );
