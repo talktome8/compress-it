@@ -8,14 +8,14 @@
    -------------------------------------------------------------------------- */
 :root {
   /* Colors */
-  --color-primary: #6366f1;
-  --color-primary-dark: #4f46e5;
-  --color-primary-light: #818cf8;
-  --color-success: #10b981;
+  --color-primary: #4f46e5;
+  --color-primary-dark: #4338ca;
+  --color-primary-light: #6366f1;
+  --color-success: #047857;
   --color-success-light: #d1fae5;
-  --color-warning: #f59e0b;
+  --color-warning: #b45309;
   --color-warning-light: #fef3c7;
-  --color-error: #ef4444;
+  --color-error: #b91c1c;
   --color-error-light: #fee2e2;
 
   /* Neutrals */
@@ -24,7 +24,7 @@
   --color-gray-100: #f3f4f6;
   --color-gray-200: #e5e7eb;
   --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
+  --color-gray-400: #667085;
   --color-gray-500: #6b7280;
   --color-gray-600: #4b5563;
   --color-gray-700: #374151;
@@ -32,7 +32,7 @@
   --color-gray-900: #111827;
 
   /* Typography */
-  --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
     sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -282,7 +282,7 @@ body {
   margin-bottom: var(--spacing-2);
 }
 
-.upload-content h3 {
+.upload-content h2 {
   font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--color-gray-800);
@@ -393,6 +393,56 @@ body {
   color: var(--color-gray-600);
   font-size: var(--font-size-sm);
   line-height: 1.4;
+}
+
+.size-estimate[data-state="loading"] {
+  color: var(--color-gray-700);
+}
+
+.size-estimate[data-state="error"] {
+  color: var(--color-error);
+  background: var(--color-error-light);
+}
+
+.size-estimate p {
+  margin: 0;
+}
+
+.estimate-note,
+.setting-note {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.estimate-note {
+  margin-top: var(--spacing-1) !important;
+}
+
+.estimate-files {
+  display: grid;
+  gap: var(--spacing-1);
+  margin-top: var(--spacing-2);
+  padding-top: var(--spacing-2);
+  border-top: 1px solid var(--color-gray-200);
+  list-style: none;
+}
+
+.estimate-files li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
+.estimate-files li span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.estimate-files li strong {
+  flex-shrink: 0;
 }
 
 .size-estimate strong {
@@ -1169,7 +1219,7 @@ body {
   justify-content: center;
 }
 
-.desktop-promo-comparison h4 {
+.desktop-promo-comparison h3 {
   font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-gray-800);

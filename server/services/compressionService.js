@@ -135,7 +135,8 @@ function getCompressionOptions(format, quality) {
  * @param {Object} settings - Compression settings
  * @returns {Object} Compression result
  */
-async function compressImage(file, settings) {
+async function compressImage(file, settings, options = {}) {
+  const { writeOutput = true, includeData = true } = options;
   const {
     quality,
     outputFormat,
@@ -232,10 +233,14 @@ async function compressImage(file, settings) {
       outputBuffer = await renderAtQuality(quality);
     }
 
-    await fs.writeFile(outputPath, outputBuffer);
+    if (writeOutput) {
+      await fs.writeFile(outputPath, outputBuffer);
+    }
 
     const compressedSize = outputBuffer.length;
-    const compressedData = await fs.readFile(outputPath, "base64");
+    const compressedData = includeData
+      ? outputBuffer.toString("base64")
+      : undefined;
 
     // Calculate savings
     const savedBytes = originalSize - compressedSize;

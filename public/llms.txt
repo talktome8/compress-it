@@ -1,0 +1,12 @@
+# Compress-It
+
+> A web tool for reducing image file sizes and compressing videos in the browser.
+
+## Main page
+
+- [Compress-It](https://compress-it.raztom.com/): Compress JPG, PNG, GIF, and WebP images with quality, format, dimensions, or a target size. Video compression runs locally in the browser.
+
+## Source and documentation
+
+- [Source code](https://github.com/talktome8/compress-it): Project source and desktop application.
+- [Desktop build guide](https://github.com/talktome8/compress-it/blob/main/DESKTOP_APP_GUIDE.md): Instructions for building the desktop version.

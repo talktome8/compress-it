@@ -94,7 +94,7 @@
         <div id="imageSettings" class="settings-panel" style="display: none">
           <div class="settings-row">
             <div class="setting">
-              <label>Quality: <span id="qualityVal">80</span>%</label>
+              <label>Image Quality: <span id="qualityVal">80</span>%</label>
               <input
                 type="range"
                 id="qualitySlider"
@@ -106,8 +106,17 @@
               <div class="slider-labels">
                 <span>Smaller</span><span>Better</span>
               </div>
-              <div class="size-estimate" id="imageSizeEstimate">
-                Add images to estimate output size.
+              <p class="setting-note">
+                Quality is not a file-size percentage. Use Target Size for a
+                specific KB limit.
+              </p>
+              <div
+                class="size-estimate"
+                id="imageSizeEstimate"
+                role="status"
+                aria-live="polite"
+              >
+                Add images to measure output size.
               </div>
             </div>
             <div class="setting">

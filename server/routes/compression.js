@@ -66,6 +66,39 @@ const upload = multer({
   },
 });
 
+function normalizeCompressionSettings(settings = {}) {
+  const quality = parseInt(settings.quality, 10);
+  const parseOptionalNumber = (value, max) => {
+    const parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) return null;
+    return Math.min(parsed, max);
+  };
+
+  return {
+    quality: Number.isFinite(quality) ? Math.min(100, Math.max(1, quality)) : 80,
+    outputFormat: ["original", "jpeg", "png", "webp"].includes(
+      settings.outputFormat,
+    )
+      ? settings.outputFormat
+      : "original",
+    resizeWidth: parseOptionalNumber(settings.resizeWidth, 10000),
+    resizeHeight: parseOptionalNumber(settings.resizeHeight, 10000),
+    maintainAspectRatio: settings.maintainAspectRatio !== false,
+    targetSizeKB: parseOptionalNumber(settings.targetSizeKB, 4096),
+  };
+}
+
+function toUploadedFile(file) {
+  return {
+    id: path.basename(file.filename, path.extname(file.filename)),
+    originalName: Buffer.from(file.originalname, "latin1").toString("utf8"),
+    filename: file.filename,
+    path: file.path,
+    size: file.size,
+    mimetype: file.mimetype,
+  };
+}
+
 /**
  * POST /api/upload
  * Upload multiple images for compression
@@ -76,14 +109,7 @@ router.post("/upload", upload.array("images", 20), async (req, res) => {
       return res.status(400).json({ error: "No files uploaded" });
     }
 
-    const uploadedFiles = req.files.map((file) => ({
-      id: path.basename(file.filename, path.extname(file.filename)),
-      originalName: file.originalname,
-      filename: file.filename,
-      path: file.path,
-      size: file.size,
-      mimetype: file.mimetype,
-    }));
+    const uploadedFiles = req.files.map(toUploadedFile);
 
     res.json({
       success: true,
@@ -93,6 +119,51 @@ router.post("/upload", upload.array("images", 20), async (req, res) => {
   } catch (error) {
     console.error("Upload error:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/estimate
+ * Run the real compression pipeline without keeping the generated files.
+ */
+router.post("/estimate", upload.array("images", 20), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
+    const settings = normalizeCompressionSettings(req.body);
+    const results = await Promise.all(
+      req.files.map((file) =>
+        compressionService.compressImage(toUploadedFile(file), settings, {
+          writeOutput: false,
+          includeData: false,
+        }),
+      ),
+    );
+
+    res.json({
+      success: true,
+      results: results.map((result) => ({
+        success: result.success,
+        originalName: result.originalName,
+        originalSize: result.originalSize,
+        compressedSize: result.compressedSize,
+        savingsPercent: result.savingsPercent,
+        outputFormat: result.outputFormat,
+        actualQuality: result.actualQuality,
+        targetSizeBytes: result.targetSizeBytes,
+        targetMatched: result.targetMatched,
+        error: result.error,
+      })),
+    });
+  } catch (error) {
+    console.error("Estimate error:", error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    await Promise.all(
+      (req.files || []).map((file) => fs.unlink(file.path).catch(() => {})),
+    );
   }
 });
 
@@ -108,18 +179,7 @@ router.post("/compress", async (req, res) => {
       return res.status(400).json({ error: "No files to compress" });
     }
 
-    const compressionSettings = {
-      quality: parseInt(settings?.quality) || 80,
-      outputFormat: settings?.outputFormat || "original",
-      resizeWidth: settings?.resizeWidth
-        ? parseInt(settings.resizeWidth)
-        : null,
-      resizeHeight: settings?.resizeHeight
-        ? parseInt(settings.resizeHeight)
-        : null,
-      maintainAspectRatio: settings?.maintainAspectRatio !== false,
-      targetSizeKB: settings?.targetSizeKB ? parseInt(settings.targetSizeKB) : null,
-    };
+    const compressionSettings = normalizeCompressionSettings(settings);
 
     const results = await Promise.all(
       files.map((file) =>

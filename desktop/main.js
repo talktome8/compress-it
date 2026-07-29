@@ -79,7 +79,9 @@ app.on("activate", () => {
 // IPC Handlers — Image Compression
 // =============================================================================
 
-ipcMain.handle("compress-image", async (event, { filePath, options }) => {
+ipcMain.handle(
+  "compress-image",
+  async (event, { filePath, options, estimateOnly = false }) => {
   try {
     const inputBuffer = fs.readFileSync(filePath);
     const fileName = path.basename(filePath);
@@ -183,7 +185,9 @@ ipcMain.handle("compress-image", async (event, { filePath, options }) => {
       outputName: outName,
       originalSize: inputBuffer.length,
       compressedSize: outputBuffer.length,
-      compressedData: outputBuffer.toString("base64"),
+      compressedData: estimateOnly
+        ? undefined
+        : outputBuffer.toString("base64"),
       actualQuality,
       targetSizeBytes: targetBytes,
       targetMatched,
@@ -193,7 +197,8 @@ ipcMain.handle("compress-image", async (event, { filePath, options }) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
-});
+  },
+);
 
 // =============================================================================
 // IPC Handlers — Video Compression

@@ -11,9 +11,14 @@ const state = {
   files: [], // Uploaded files info
   results: [], // Compression results
   isCompressing: false,
+  estimateTimer: null,
+  estimateController: null,
+  estimateCache: new Map(),
+  estimateRevision: 0,
 };
 
 const MAX_IMAGE_UPLOAD_MB = 4;
+const ESTIMATE_DELAY_MS = 700;
 
 // =============================================================================
 // DOM Elements
@@ -144,16 +149,6 @@ function isValidImageType(file) {
   return validTypes.includes(file.type);
 }
 
-function getTargetFormat(fileType) {
-  const selected = elements.outputFormat.value;
-  if (selected !== "original") return selected;
-  if (fileType === "image/jpeg") return "jpeg";
-  if (fileType === "image/png") return "png";
-  if (fileType === "image/gif") return "gif";
-  if (fileType === "image/webp") return "webp";
-  return "jpeg";
-}
-
 function base64ToBlob(base64, mimeType) {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -176,67 +171,146 @@ function getPreviewSource(result) {
   return `/api/preview/${result.compressedFilename}`;
 }
 
-function estimateCompressedSize(fileInfo) {
-  const quality = Math.max(1, Math.min(100, parseInt(elements.qualitySlider.value, 10) || 80));
-  const format = getTargetFormat(fileInfo.file.type);
-  const width = parseInt(elements.resizeWidth.value, 10);
-  const height = parseInt(elements.resizeHeight.value, 10);
-  let resizeRatio = 1;
+function getCompressionSettings() {
+  return {
+    quality: parseInt(elements.qualitySlider.value, 10) || 80,
+    outputFormat: elements.outputFormat.value,
+    resizeWidth: elements.resizeWidth.value || "",
+    resizeHeight: elements.resizeHeight.value || "",
+    targetSizeKB: elements.targetSizeKB.value || "",
+  };
+}
 
-  if (fileInfo.width && fileInfo.height && (width || height)) {
-    const widthRatio = width ? width / fileInfo.width : 1;
-    const heightRatio = height ? height / fileInfo.height : 1;
-    resizeRatio = Math.min(1, widthRatio, heightRatio);
+function setEstimateMessage(message, stateName = "idle") {
+  elements.sizeEstimate.replaceChildren();
+  elements.sizeEstimate.dataset.state = stateName;
+  const text = document.createElement("span");
+  text.textContent = message;
+  elements.sizeEstimate.appendChild(text);
+}
+
+function renderMeasuredEstimate(results) {
+  const successful = results.filter((result) => result?.success);
+  if (successful.length === 0) {
+    setEstimateMessage("A measured preview could not be generated. Try compression again.", "error");
+    return;
   }
 
-  const pixelRatio = resizeRatio * resizeRatio;
-  const q = quality / 100;
-  const formatFactors = {
-    jpeg: 0.16 + q * 0.72,
-    webp: 0.12 + q * 0.62,
-    png: 0.36 + q * 0.68,
-    gif: 0.55 + q * 0.45,
-  };
-  return Math.max(512, Math.round(fileInfo.size * pixelRatio * (formatFactors[format] || 0.8)));
+  const originalTotal = successful.reduce(
+    (sum, result) => sum + result.originalSize,
+    0,
+  );
+  const compressedTotal = successful.reduce(
+    (sum, result) => sum + result.compressedSize,
+    0,
+  );
+  const savings = ((originalTotal - compressedTotal) / originalTotal) * 100;
+
+  elements.sizeEstimate.replaceChildren();
+  elements.sizeEstimate.dataset.state = "ready";
+
+  const summary = document.createElement("p");
+  summary.append("Measured output: ");
+  const size = document.createElement("strong");
+  size.textContent = formatFileSize(compressedTotal);
+  summary.append(size, ` total (${Math.abs(savings).toFixed(1)}% ${savings >= 0 ? "smaller" : "larger"}).`);
+  elements.sizeEstimate.appendChild(summary);
+
+  const note = document.createElement("p");
+  note.className = "estimate-note";
+  note.textContent = elements.targetSizeKB.value
+    ? "The target is a maximum per image. The result can be smaller when re-encoding already reduces the file further."
+    : "Measured with the same compression engine and settings used for the final result.";
+  elements.sizeEstimate.appendChild(note);
+
+  const list = document.createElement("ul");
+  list.className = "estimate-files";
+  successful.forEach((result) => {
+    const item = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = result.originalName;
+    const resultSize = document.createElement("strong");
+    resultSize.textContent = formatFileSize(result.compressedSize);
+    item.append(name, resultSize);
+    list.appendChild(item);
+  });
+  elements.sizeEstimate.appendChild(list);
+}
+
+async function measureFiles(revision) {
+  if (state.estimateController) state.estimateController.abort();
+  state.estimateController = new AbortController();
+  const { signal } = state.estimateController;
+  const settings = getCompressionSettings();
+  const settingsKey = JSON.stringify(settings);
+  const results = [];
+
+  try {
+    for (let index = 0; index < state.files.length; index++) {
+      if (revision !== state.estimateRevision) return;
+      const fileInfo = state.files[index];
+      const cacheKey = `${fileInfo.name}:${fileInfo.size}:${fileInfo.file.lastModified}:${settingsKey}`;
+      let result = state.estimateCache.get(cacheKey);
+
+      if (!result) {
+        setEstimateMessage(
+          `Running a real test compression (${index + 1} of ${state.files.length})...`,
+          "loading",
+        );
+        const formData = new FormData();
+        formData.append("images", fileInfo.file);
+        Object.entries(settings).forEach(([key, value]) => {
+          if (value !== "") formData.append(key, value);
+        });
+
+        const response = await fetch("/api/estimate", {
+          method: "POST",
+          body: formData,
+          signal,
+        });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.error || "Preview compression failed");
+        }
+
+        const payload = await response.json();
+        result = payload.results[0];
+        state.estimateCache.set(cacheKey, result);
+        if (state.estimateCache.size > 100) {
+          state.estimateCache.delete(state.estimateCache.keys().next().value);
+        }
+      }
+      results.push(result);
+    }
+
+    if (revision === state.estimateRevision) renderMeasuredEstimate(results);
+  } catch (error) {
+    if (error.name !== "AbortError" && revision === state.estimateRevision) {
+      console.error("Measured preview error:", error);
+      setEstimateMessage(
+        "Measured preview is temporarily unavailable. The final result will still use these settings.",
+        "error",
+      );
+    }
+  }
 }
 
 function updateSizeEstimate() {
   if (!elements.sizeEstimate) return;
+  clearTimeout(state.estimateTimer);
+  state.estimateRevision += 1;
+  if (state.estimateController) state.estimateController.abort();
+
   if (state.files.length === 0) {
-    elements.sizeEstimate.textContent = "Add images to estimate output size.";
+    setEstimateMessage("Add images to measure the output size.");
     return;
   }
-
-  const originalTotal = state.files.reduce((sum, file) => sum + file.size, 0);
-  const targetSizeKB = parseInt(elements.targetSizeKB.value, 10);
-  if (targetSizeKB > 0) {
-    const targetTotal = targetSizeKB * 1024 * state.files.length;
-    const targetDelta = ((originalTotal - targetTotal) / originalTotal) * 100;
-    const trend =
-      targetDelta >= 0
-        ? `${targetDelta.toFixed(0)}% smaller`
-        : `${Math.abs(targetDelta).toFixed(0)}% larger`;
-    elements.sizeEstimate.innerHTML = `Target output: <strong>${formatFileSize(
-      targetTotal,
-    )}</strong> total (${formatFileSize(
-      targetSizeKB * 1024,
-    )} per image, ${trend}). Compression will run real quality search to get as close as possible.`;
-    return;
-  }
-
-  const estimateTotal = state.files.reduce(
-    (sum, file) => sum + estimateCompressedSize(file),
-    0,
+  setEstimateMessage("Waiting to measure with the compression engine...", "loading");
+  const revision = state.estimateRevision;
+  state.estimateTimer = setTimeout(
+    () => measureFiles(revision),
+    ESTIMATE_DELAY_MS,
   );
-  const estimateDelta = ((originalTotal - estimateTotal) / originalTotal) * 100;
-  const trend =
-    estimateDelta >= 0
-      ? `${estimateDelta.toFixed(0)}% smaller`
-      : `${Math.abs(estimateDelta).toFixed(0)}% larger`;
-
-  elements.sizeEstimate.innerHTML = `Estimated output: <strong>${formatFileSize(
-    estimateTotal,
-  )}</strong> (${trend}). Exact size appears after compression.`;
 }
 
 // =============================================================================
@@ -308,9 +382,12 @@ function removeFile(index) {
  * Clear all files
  */
 function clearAllFiles() {
+  clearTimeout(state.estimateTimer);
+  if (state.estimateController) state.estimateController.abort();
   state.files.forEach((f) => URL.revokeObjectURL(f.thumbnail));
   state.files = [];
   state.results = [];
+  state.estimateCache.clear();
   updateFilesUI();
   elements.resultsSection.style.display = "none";
   updateSizeEstimate();
@@ -381,13 +458,7 @@ async function uploadFiles() {
  * Compress uploaded files
  */
 async function compressFiles(uploadedFiles) {
-  const settings = {
-    quality: parseInt(elements.qualitySlider.value),
-      outputFormat: elements.outputFormat.value,
-      resizeWidth: elements.resizeWidth.value || null,
-      resizeHeight: elements.resizeHeight.value || null,
-      targetSizeKB: elements.targetSizeKB.value || null,
-    };
+  const settings = getCompressionSettings();
 
   const response = await fetch("/api/compress", {
     method: "POST",

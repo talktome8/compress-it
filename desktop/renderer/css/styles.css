@@ -228,6 +228,31 @@ body {
 .size-estimate strong {
   color: var(--gray-900);
 }
+.setting-note,
+.estimate-note {
+  margin-top: 5px;
+  color: var(--gray-600);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+.estimate-files {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--gray-200);
+  list-style: none;
+}
+.estimate-files li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.estimate-files li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Inputs */
 .select,

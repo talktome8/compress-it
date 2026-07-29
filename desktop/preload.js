@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld("compressIt", {
   // Image compression
   compressImage: (filePath, options) =>
     ipcRenderer.invoke("compress-image", { filePath, options }),
+  estimateImage: (filePath, options) =>
+    ipcRenderer.invoke("compress-image", {
+      filePath,
+      options,
+      estimateOnly: true,
+    }),
 
   // Video compression
   getVideoInfo: (filePath) => ipcRenderer.invoke("get-video-info", filePath),
