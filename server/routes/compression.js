@@ -9,7 +9,6 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs").promises;
 const { v4: uuidv4 } = require("uuid");
-const { ZipArchive } = require("archiver");
 const { createWriteStream } = require("fs");
 
 const compressionService = require("../services/compressionService");
@@ -230,6 +229,7 @@ router.get("/download/:filename", async (req, res) => {
  */
 router.post("/download-zip", async (req, res) => {
   try {
+    const { ZipArchive } = await import("archiver");
     const { files } = req.body;
 
     if (!files || files.length === 0) {
