@@ -8,9 +8,6 @@ const cors = require("cors");
 const path = require("path");
 const { existsSync, mkdirSync } = require("fs");
 
-// Import routes
-const compressionRoutes = require("../server/routes/compression");
-
 // Initialize Express app
 const app = express();
 
@@ -34,9 +31,6 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 // Serve compressed files (for Vercel)
 app.use("/compressed", express.static(compressedDir));
 
-// API Routes - mount at root since Vercel rewrites /api/* to this function
-app.use("/api", compressionRoutes);
-
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({
@@ -44,6 +38,18 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     version: "1.0.0",
   });
+});
+
+// Load native image dependencies only when a compression route is requested.
+let compressionRoutes;
+app.use("/api", (req, res, next) => {
+  try {
+    compressionRoutes ||= require("../server/routes/compression");
+    return compressionRoutes(req, res, next);
+  } catch (error) {
+    console.error("API initialization error:", error);
+    return res.status(500).json({ error: "Compression service unavailable" });
+  }
 });
 
 // Error handling middleware
