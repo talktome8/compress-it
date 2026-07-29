@@ -9,7 +9,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs").promises;
 const { v4: uuidv4 } = require("uuid");
-const archiver = require("archiver");
+const { ZipArchive } = require("archiver");
 const { createWriteStream } = require("fs");
 
 const compressionService = require("../services/compressionService");
@@ -241,7 +241,7 @@ router.post("/download-zip", async (req, res) => {
 
     // Create a write stream for the zip file
     const output = createWriteStream(zipPath);
-    const archive = archiver("zip", {
+    const archive = new ZipArchive({
       zlib: { level: 9 }, // Maximum compression
     });
 
